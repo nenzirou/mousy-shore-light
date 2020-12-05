@@ -549,7 +549,7 @@ function opeZemi(num){
 }
 // 一周期分のゼミ順を返す
 function returnOrder(){
-  let text = "発表者順\n**:arrow_forward:　";
+  let text = "**　　☆発表者順☆**\n**:arrow_right:　";
   text += combiName(name[zemiName],addName)+"**\n";
   for(var i=1;i<name.length;i++){
     text += ":arrow_up:　"+returnName(name[(zemiName+i)%6])+"\n";
@@ -696,7 +696,7 @@ function weatherForecast(){
 }
 // iconの値から天気の絵文字を返す
 function returnWeatherIcon(iconName){
-  const iconStr = [":sunny:",":white_sun_small_cloud:",":cloud:",":cloud:",":white_sun_rain_cloud:",":umbrella:",":thunder_cloud_rain:",":snowflake:",":fog:",":boom:"];
+  const iconStr = [":sunny:",":white_sun_small_cloud:",":white_sun_cloud:",":cloud:",":cloud_rain:",":umbrella:",":thunder_cloud_rain:",":snowflake:",":fog:",":boom:"];
   const iconID = ["01","02","03","04","09","10","11","13","50"];
   for(var i=0;i<iconID.length;i++){
     if(iconName.match(iconID[i])) return iconStr[i];

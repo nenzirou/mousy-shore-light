@@ -1,6 +1,6 @@
 # DiscordBotBase
 
-岐阜大学木島研究室のディスコードサーバーにて機能するBOTプログラムです。
+GlitchでDiscordBotを作るためのベースです。
 
 
 ## 詳細
