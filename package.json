@@ -17,6 +17,7 @@
     "node-cron": "^2.0.3",
     "opusscript": "0.0.7",
     "querystring": "^0.2.0",
+    "unirest": "^0.6.0",
     "voice-text": "^0.1.2",
     "voicetext": "0.0.7",
     "ytdl-core": "^3.3.0"

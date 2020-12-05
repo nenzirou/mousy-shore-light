@@ -1,6 +1,7 @@
 const http = require('http');
 const querystring = require('querystring');
 const discord = require('discord.js');
+const unirest = require("unirest");// OpenWeatherMapと通信するために必要
 const client = new discord.Client();
 const {writeFileSync} =require('fs');// ファイル関係
 const {createWriteStream} =require('fs');// ファイル関係
@@ -12,6 +13,11 @@ const cron = require('node-cron');// 定期的にプログラムを実行して�
 // 名前とその対応するディスコードIDを記述する
 const name = [["伊藤","三木"],["浅野","白木"],["松野","虫鹿"],["尾山","稲守"],["南部","高岡"],["犬飼","野ツ俣"]];
 const id = [["715796433487396864","625491071475908651"],["243312886049406979","695626581187756102"],["694899614201020448","336031337452666880"],["699500872442314754","694443025287610408"],["708191971424075797","337439445269741568"],["331787151341780994","694560220730359890"]];
+// 全員の名前を一つにまとめたリストを作成する
+var memberList = [];
+for(var i=0;i<name.length;i++){
+  Array.prototype.push.apply(memberList, name[i]);
+}
 // チャンネルID記述
 const TEACHER_CHANNEL = "732522915832266834";// 木島先生の部屋ID
 const NOTICE_CHANNEL = "716879387072528384";// #お知らせID
@@ -42,6 +48,7 @@ const apo = ["","","","","","","","","","","",""];
 const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
 const monthDay = [31,28,31,30,31,30,31,31,30,31,30,31];
 const week = ["日","月","火","水","木","金","土"];
+const weekIcon = [":orange_circle:",":white_circle:",":red_circle:",":blue_circle:",":green_circle:",":yellow_circle:",":brown_circle:"];
 const zemiWeek = [1,2,4];// 曜日を数値で表す0~6 日~土
 const zemiTime = [16,"30",14,"45",14,"45"];// zemiWeekに対応するゼミの開始時間
 let zemiName = 0;// 発表者の配列番号
@@ -101,23 +108,9 @@ client.on('ready', message =>{
   sendMsg(GAME_CHANNEL,display());// ゲーム画面表示
 });
 
-// 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行
+// 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule('30 0 22 * * *', () => {
-  var zemiId = 0;// zemiWeek及びzemiTime(ゼミ開始時刻)の配列番号
-  let today = compensate();// 曜日、月、日、時間、分、年、元号の順に配列として代入
-  for(var i=0;i<zemiWeek.length;i++){// 次のゼミがいつなのかを探る
-    if(today[0]>zemiWeek[i]) zemiId=i+1;
-    if(zemiId==zemiWeek.length) zemiId = 0;
-  }
-  let text = "おはようございます！"+today[1]+"月"+today[2]+"日"+week[today[0]]+"曜日の朝がやってきました。\n";
-  if(zemiWeek.indexOf(today[0])!=-1) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";
-  else text += "次回のゼミは"+week[zemiWeek[zemiId]]+"曜日の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からの予定です。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";
-  if(today[0] == 2 || today[0] == 5) text += "#燃えるゴミの日";
-  if(today[0] == 3 || today[0] == 5) text += "#工学実験TA(3限)";
-  if(today[0] == 4 && today[2]<=6)   text += "\n"+makeSurText("明日は段ボール回収の日","＃");
-  if(today[0] == 5 && today[2]<=7)   text += "\n"+makeSurText("段ボール回収の日","＊");
-  if(today[0] == 6) text+=today[5]+"年(令和"+today[6]+"年"+zodiac[(today[5]-2020)%12]+"年)は残り"+remainingDays(today[1],today[2],1,1)+"日です。";
-  sendMsg(NOTICE_CHANNEL,text);
+  notice(NOTICE_CHANNEL);
 });
 // ゼミ終了後にゼミ順を定時連絡する
 cron.schedule('0 10 * * 1,2,4', () => {
@@ -143,123 +136,134 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 // ユーザのコメントに対する反応系
 client.on('message', async message =>{
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if(!message.content.match(/@|＠|http| /)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL) say(message.member.displayName.substr(0,2)+"、"+message.content,voiceTable[message.member.id%voiceTable.length]);
+  if(!message.content.match(/@|＠|http| /)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL) 
+    say(message.member.displayName.substr(0,2)+"、"+message.content,voiceTable[message.member.id%voiceTable.length]);
   // ゲームチャンネルの処理
-  if(message.channel.id == GAME_CHANNEL){
-    if(message.author.id==client.user.id) textId = message.id;
-    else {
-      let order = message.content;
-      let name = message.member.displayName;
-      message.delete();
-      // 前フレームのメッセージを削除する
-      if(textId!=0) {
-        beforeMessage = client.channels.cache.get(GAME_CHANNEL).messages.cache.get(textId);
-        if(beforeMessage!=null)beforeMessage.delete();
-      }
-      if(gameOver){
-        score=0;
-        gameOver = false;
-        load();
-        makeField();
-      }else if(!gameOver){
-        let text = "\n";
-        nyanSitu = search();
-        if(order.match(/w/)){//上
-          move(nyanSitu,"u");
-        }else if(order.match(/s/)){//下
-          move(nyanSitu,"d");
-        }else if(order.match(/a/)){// 左
-          move(nyanSitu,"l");
-        }else if(order.match(/d/)){// 右
-          move(nyanSitu,"r");
-        }else if(order.match(/r/)) {
-          gameOver=true;
-          death();
-          score = 0;
-          name = "";
-        }
-        let obakeArray = searchObake();
-        for(var i=0;i<obakeArray.length;i++) move(obakeArray[i],dirStr[Math.floor(Math.random()*(dirStr.length))]);
-      }
-      // ランキング処理
-      let flag = true;
-      if(tmpHighScore.indexOf(name)!=-1){
-        if(tmpHighScore[tmpHighScore.indexOf(name)-1]>score) flag = false;
-      }
-      if(flag){
-        for(var i=0;i<3;i++){
-          if(score>=tmpHighScore[i*2]){
-            for(var j=0;j<6;j++) tmpHighScore[j] = highScore[j];
-            tmpHighScore[i*2] = score;
-            tmpHighScore[i*2+1] = name;
-            for(var j=i;j<2;j++){
-              tmpHighScore[(j+1)*2] = highScore[j*2];
-              tmpHighScore[(j+1)*2+1] = highScore[j*2+1];
-            }
-            save();
-            break;
-          }
-        }
-      }
-      let text="";
-      if(name!=="") text+="プレイヤー："+name;
-      text+=display();
-      sendMsg(GAME_CHANNEL,text);
-    }
-    return;
-  }
+  game(message);
   // 匿名チャンネルの処理
-  if(message.channel.id == ANONY_CHANNEL){
-    if(message.author.id == client.user.id) return;
-    anonyId++;
-    save();
-    let text = "("+anonyId+")\n"+message.content;
-    message.delete();
-    sendMsg(ANONY_CHANNEL,text);
-  }
+  anony(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
   if (message.author.id == client.user.id || message.author.bot){
     return;
   }
-  // 各種反応 お知らせチャンネルを除く
+  // 各種反応
+  react(message);
+  // ゼミ開始の処理 @zemi
+  zemi(message);
+  // 司会者を教えてくれる @sikai
+  sikai(message);
+  // ゼミ順を前に移動する @back
+  back(message);
+  // ゼミ順を後に移動する @for
+  forward(message);
+  // ゼミ順を初期化する @clear
+  clear(message);
+  // 発表順の確認をする @next
+  next(message);
+  // ゼミ順に積み残しの人を追加する @add
+  add(message);
+  // ゼミ順の積み残しの人を削除する @take
+  take(message);
+  // 発言者のいるボイスチャンネルに接続する @join
+  join(message);
+  // ボイスチャンネルから切断する @leave
+  leave(message);
+  // youtubeの音楽を流す @bgm
+  bgm(message);
+  // 文章の文字数をカウントする @len
+  len(message);
+  // サイコロを振る @dice
+  dice(message);
+  // 時間を測る @time
+  time(message);
+  // メンバーをランダムで選択する @sel
+  sel(message);
+  // 文字列を装飾する @big
+  big(message);
+  // デバッグ用 @db
+  debug(message);
+});
+
+// トークンが設定されていない場合　.envにてDISCORD_BOT_TOKENを設定しておく必要あり
+if(process.env.DISCORD_BOT_TOKEN == undefined){
+ console.log('DISCORD_BOT_TOKENが設定されていません。');
+ process.exit(0);
+}
+
+client.login( process.env.DISCORD_BOT_TOKEN );// ログインする
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                Main Function                                                                                                 //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 定時連絡のテキストを生成する関数
+function notice(channel){
+  var zemiId = 0;// zemiWeek及びzemiTime(ゼミ開始時刻)の配列番号
+  let today = getTime();// 西暦(0),月(1),日(2),曜日(3),時間(4),分(5),和暦(6)の順の配列を返す
+  for(var i=0;i<zemiWeek.length;i++){// 次のゼミがいつなのかを探る
+    if(today[3]>zemiWeek[i]) zemiId=i+1;
+    if(zemiId==zemiWeek.length) zemiId = 0;
+  }
+  let text = "おはようございます！\n"+today[1]+"月"+today[2]+"日"+weekIcon[today[3]]+week[today[3]]+"曜の朝がやってきました。\n";
+  if(zemiWeek.indexOf(today[3])!=-1) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
+  else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からの予定です。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
+  if(today[3] == 2 || today[3] == 5) text += ":bell:燃えるゴミの日";// 火曜日と金曜日
+  if(today[3] == 3 || today[3] == 5) text += ":bell:工学実験TA(3限)";// 水曜日と金曜日
+  if(today[3] == 4 && today[2]<=6)   text += makeSurText("明日は段ボール回収の日","＃");// 第一木曜日
+  if(today[3] == 5 && today[2]<=7)   text += "\n"+makeSurText("今日は段ボール回収の日","＊");// 第一金曜日
+  if(today[3] == 6) text+=today[0]+"年(令和"+today[6]+"年"+zodiac[(today[0]-2020)%12]+"年)は残り"+remainingDays(today[1],today[2],1,1)+"日です。";// 毎週土曜日に今年の残りの日数を通知
+  weatherForecast().then(res=>{// 天気予報の追加
+    text += res[0];
+    if(today[3]==0) text += res[1];
+    sendMsg(channel,text);
+  })
+}
+// メッセージに対する反応を行う
+function react(message){
   if(message.channel.id!=NOTICE_CHANNEL && message.channel.id!=TEACHER_CHANNEL){
     const REACTION= "762647337461874709";
     if(message.content.match(/にゃん|ニャン|ちゅう|チュウ/)){
       sendMsg(message.channel.id," "+res[Math.round(Math.random()*(res.length-1))]);   
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/ありが|あざ|サン|さんきゅ|さんくす/)){
       sendMsg(message.channel.id," "+thanks[Math.round(Math.random()*(thanks.length-1))]);
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/すみません|ごめん|すまん|申し訳/)){
       let text = " そういうときもあるにゃ″ぁ";
       sendMsg(message.channel.id,text);
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/うるさい|だま|黙|しずかに|静かに|やっぱり/)){
       let text = "ぃや″っぱりぃ″！？";
       sendMsg(message.channel.id,text);
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/なんで|どうして/)){
       sendMsg(message.channel.id,"にゃ″んでぇ！？にゃ″～んでぇ！？");
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/すご|やば|素晴し|すばらし|すげ|やべ|凄|いいね|やる|流石/)){
       sendMsg(message.channel.id,"こぉ″れを芸術と呼ばずしてにゃ″んと申しましょうか～！");
       message.react(REACTION);
+      return;
     }
     if(message.content.match(/正解|違|合って|どうですか|ちが|その通り/)){
       sendMsg(message.channel.id,"ちっがぁいあ″りませ～ん″！");
       message.react(REACTION);
+      return;
     }
   }
-  // ゼミを始める際に入力することで、全員に対する通知を行い、発表者順を表示する　お知らせ:716879387072528384 bot開発:758946751830163477 木島先生id 702413329691443270
+}
+// ゼミ開始の処理
+function zemi(message){
   if (message.content.match(/zemi|ゼミ始|ゼミです|ゼミやりま|ゼミっす|ゼミ。|ぜみ。|ゼミ開始|ぜみ開始/)){
     console.log("ゼミ開始");
-    let tmp = (zemiName+2)%6;
-    let text = "everyone\nゼミが始まります！\n**発表者："+combiName(name[zemiName],addName)+"**\n司会　："+returnName(name[tmp]);
+    let text = "everyone\nゼミが始まります！\n**発表者："+combiName(name[zemiName],addName)+"**\n司会　："+returnName(name[(zemiName+2)%name.length]);
     if(message.channel.id==BOT_CHANNEL){
       sendMsg(BOT_CHANNEL,text);
     }else {
@@ -271,40 +275,52 @@ client.on('message', async message =>{
     opeZemi(1);
     save();
   }
-  // 司会者を教えてくれる
+}
+// 司会者を教えてくれる
+function sikai(message){
   if (message.content.match(/sikai|shikai/)){
     sendMsg(message.channel.id,"司会者："+returnName(name[(zemiName+2)%name.length]));
     message.delete();
   }
-  // ゼミ順を前に移動する
+}
+// ゼミ順を前に移動する
+function back(message){
   if(message.content.match(/back/)){
     opeZemi(-1);
     save();
     sendReply(message,"発表者順を１つ前に移動しました。\n次の発表者は"+combiName(name[zemiName],addName)+"さんです。");
     message.delete();
   }
-  // ゼミ順を後に移動する
+}
+// ゼミ順を後ろに移動する
+function forward(message){
   if(message.content.match(/for/)){
     opeZemi(1);
     save();
     sendReply(message,"発表者順を１つ後に移動しました。\n次の発表者は"+combiName(name[zemiName],addName)+"さんです。");    
     message.delete();
   }
-  // ゼミ順を初期化する
+}
+// ゼミ順を初期化する
+function clear(message){
   if(message.content.match(/@clear/)){
     zemiName = 0;
     clearAddName();
     save();
     sendReply(message,"ゼミ順を初期化しました。");
   }
-  // 発表順の確認をする
+}
+// ゼミ順を確認する
+function next(message){
   if(message.content.match(/next/)){
     let text = returnOrder();
     sendMsg(message.channel.id, text);
     message.delete();
   }
-  // ゼミ順に積み残しの人を追加する
-  if(message.content.match(/add/)){
+}
+// 積み残しの人を追加する
+function add(message){
+  if(message.content.match(/@add/)){
     var str = message.content.split(" ");
     var text = "@以下の人を次のゼミ発表者に追加しました：";
     if(str.length>1){
@@ -318,21 +334,25 @@ client.on('message', async message =>{
       }
       if(judgeLength>5) text += "\n名前が長すぎる人はミ″ーには覚えられなかったにゃ″ぁ";
     }else{
-      text = "add 名前 名前 ... のように半角スペースで区切って教えてくれないとミ″ーには難しいにゃ″ぁ";
+      text = "@add 名前 名前 ... のように半角スペースで区切って教えてくれないとミ″ーには難しいにゃ″ぁ";
     }
     save();
     sendMsg(message.channel.id, text);
     message.delete();
   }
-  // ゼミ順の積み残しの人を削除する
+}
+// 積み残しリストを削除する
+function take(message){
   if(message.content.match(/take/)){
     clearAddName();
-    var text = "積み残しの人のリストを削除しました。";
+    var text = "積み残しリストを削除しました。";
     save();
     sendMsg(message.channel.id, text);
     message.delete();
   }
-  // 発言者のいるボイスチャンネルに接続する
+}
+// メッセージを送った人のいるボイスチャンネルに接続する
+function join(message){
   if (message.content.match(/join/)) {
     let ch = message.member.voice.channel;
     if(ch==null)sendMsg(message.channel.id, "ボイスチャンネルに入室してからjoinと命令してください。");
@@ -340,14 +360,19 @@ client.on('message', async message =>{
     console.log(ch+"に接続");
     message.delete();
   }
-  // ボイスチャンネルから切断する
+}
+// ボイスチャンネルから切断する
+function leave(message){
   if (message.content.match(/leave/)) {
     if(client.voice.connections.get(GUILD_ID)==null)sendMsg(message.channel.id, "botがボイスチャンネルに入室していません。");
     else client.voice.connections.get(GUILD_ID).disconnect();
     console.log("ボイスチャンネルから退出");
     message.delete();
   }
-  // ボイスチャンネルにyoutubeの音声を流す
+}
+
+// ボイスチャンネルにyoutubeの音声を流す
+function bgm(message){
   if(message.content.match(/@bgm/)){
     var str = message.content.split(" ");
     if(str[1]!=null && client.voice.connections.get(GUILD_ID)!=null){
@@ -361,7 +386,9 @@ client.on('message', async message =>{
     }
     message.delete();
   }
+}
   // 文字数を計測する
+function len(message){
   if(message.content.match(/len/)){
     var str = message.content.split(" ");
     var sum = str.length-2;
@@ -376,7 +403,9 @@ client.on('message', async message =>{
     sendMsg(message.channel.id,text);
     message.delete();
   }
+}
   // サイコロを振る
+function dice(message){
   if(message.content.match(/dice/)){
     var str = message.content.split(" ");
     var text = message.member.displayName+"が"+str[1]+"面ダイスを"+str[2]+"回振りました。";
@@ -395,12 +424,14 @@ client.on('message', async message =>{
         if(str.length==4) text = text + "\n平均："+(sum/n).toFixed(3);
       }
     }else{
-      text = "ん″にゃ″はぁ″！m面のダイスをn回振るには「@dice m n」と半角スペースで区切って入力してくださぁ″～い。"
+      text = "ん″にゃ″はぁ″！m面のダイスをn回振るには「dice m n」と半角スペースで区切って入力してくださぁ″～い。"
     }
     sendMsg(message.channel.id,text);
     message.delete();
   }
+}
   // タイマー機能
+function time(message){
   if (message.content.match(/time/)){
     var str = message.content.split(" ");
     if(Number(str[1])<=99){
@@ -411,45 +442,24 @@ client.on('message', async message =>{
     }else sendMsg(message.channel.id, "時間を測るには@time n(1~99の間)と入力してほしいにゃ″ん！");
     message.delete();
   }
+}
   // ランダムセレクト
+function sel(message){
   if (message.content.match(/sel/)){
-    var n = 0;
     var str = message.content.split(" ");
     var sN = Number(str[1]);
     if(str[1]==null) sN=1;
-    var text = "";
-    var list = [""];
-    for(var i=0;i<name.length;i++){
-      for(var j=0;j<name[i].length;j++){
-        n++;
-      }
+    var list = memberList.slice();// メンバーリストを複製する
+    var loop = list.length-sN;// リストの長さ-指定回数分メンバーリストからランダムに削除する
+    for(var i=0;i<loop;i++){
+      list.splice(parseInt(Math.random()*list.length),1);
     }
-    if(n>=sN && sN>0){
-      while(list.length<=sN){
-        var p = 0;
-        var rand = Math.random();
-        for(var i=0;i<name.length;i++){
-          for(var j=0;j<name[i].length;j++){
-            p += 1/n;
-            if(p>rand) {
-              for(var l=0;l<list.length;l++){
-                if(list[l]===name[i][j]){
-                  break;
-                }else if(l==list.length-1){
-                  list.push(name[i][j]);
-                }
-              }
-              break;
-            }
-          }
-          if(p>rand) break;
-        }
-      }
-      sendMsg(message.channel.id, "選ばれたのは"+returnName(list)+"でした。");
-    }else sendMsg(message.channel.id, "指定できるのは1~"+n+"人までにゃ");
+    sendMsg(message.channel.id, "選ばれたのは"+returnName(list)+"でした。");
     message.delete();
   }
+}
   // 文字を装飾して返す
+function big(message){
   if(message.content.match(/big/)){
     var str = message.content.split(" ");
     const symbol = ['＊', '＆', '＃', '＄', '￥','？','＋'];
@@ -457,23 +467,13 @@ client.on('message', async message =>{
     message.delete();
     sendMsg(message.channel.id,text);
   }
-  // デバッグ用
-  if(message.content.match(/@db/)){
-    let text = makeSurText("パラダイスおじさん","＊");
-    sendMsg(message.channel.id, text);
-    message.delete();
-  }
-});
-
-// トークンが設定されていない場合　.envにてDISCORD_BOT_TOKENを設定しておく必要あり
-if(process.env.DISCORD_BOT_TOKEN == undefined){
- console.log('DISCORD_BOT_TOKENが設定されていません。');
- process.exit(0);
 }
-
-client.login( process.env.DISCORD_BOT_TOKEN );// ログインする
-
-
+// デバッグ用
+function debug(message){
+  if(message.content.match(/@db/)){
+    notice(BOT_CHANNEL);
+  }
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                 Function                                                                                                     //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -492,10 +492,7 @@ function sendMsg(channelId, text, option={}){
 // 通常の発表者と積み残しの発表者名を結合して返す
 function combiName(zemi,add){
   let text = returnName(zemi);
-  for(var i=1;i<add.length;i++){
-    text+="、";
-    text+=add[i];
-  }
+  if(add[0]!=="") text+="、"+returnName(add);
   return text;
 }
 // 名前の配列を渡すと、テキストの形に連結してくれる
@@ -552,10 +549,10 @@ function opeZemi(num){
 }
 // 一周期分のゼミ順を返す
 function returnOrder(){
-  let text = "発表者順\n**次回　：";
+  let text = "発表者順\n**:arrow_forward:　";
   text += combiName(name[zemiName],addName)+"**\n";
   for(var i=1;i<name.length;i++){
-    text += "その次："+returnName(name[(zemiName+i)%6])+"\n";
+    text += ":arrow_up:　"+returnName(name[(zemiName+i)%6])+"\n";
   }
   return text;
 }
@@ -636,35 +633,27 @@ function makeSurText(str,kind){
   for(var i=0;i<str.length+2;i++) text+=kind;
   return text;
 }
-// 曜日、月、日付、時間、分を補正して返す
-function compensate(){
-  const now = new Date();// 日付取得に使う
-  let todayWeek = now.getDay();
+// 指定した文字列に結合したときに指定した文字数になるように空白をつけて返す
+function makeEmpty(str,n,mode){
+  var loop = n-str.length;
+  for(var i=0;i<loop;i++){
+    if(mode==0) str+=" ";
+    else str+="　";
+  }
+  return str;
+}
+// 西暦,月,日,曜日,時間,分,和歴を日本時間になおして返す
+function getTime(){
+  const now = new Date();
+  now.setTime(now.getTime()+9*3600*1000);// 日本時間に補正
+  let year = now.getFullYear();
   let month = now.getMonth();
   let day = now.getDate();
-  let hour = now.getHours();// グリニッジ標準時間になるので9時間分時差補正
+  let todayWeek = now.getDay();
+  let hour = now.getHours();
   let minutes = now.getMinutes();
-  let year = now.getFullYear();
   let era = year-2018;
-  hour+=9;
-  // 曜日の補正
-  if(hour >= 24) {
-    todayWeek = (todayWeek+1)%7;
-    day++;
-    hour -= 24;
-  }
-  // 日の補正
-  if(monthDay[month]<day){
-    day-=monthDay[month];
-    month++;
-  }
-  // 年月元号の補正
-  if(month==12) {
-    month-=12;
-    year++;
-    era++;
-  }
-  let output = [todayWeek,month+1,day,hour,minutes,year,era];
+  let output = [year,month+1,day,todayWeek,hour,minutes,era];
   return output;
 }
 // 指定した日にち(month1,day1)から指定した日にち(month2,day2)までの残りの日数を返す
@@ -682,9 +671,120 @@ function remainingDays(month1,day1,month2,day2){
     return thisMonthRemainingDays+thatMonthRemainingDays+sumDays;
   }
 }
+// 今日の天気予報の文字列をpromiseで返す
+function weatherForecast(){
+  var text1 = "\n**☆本日の岐阜市の天気予報☆**\n";
+  var text2 = "\n**☆今週の岐阜市の天気予報☆**\n";
+  var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4671165&lon=136.7333167&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜大学周辺の天気をもらってくる
+  return new Promise((resolve, reject) => { 
+    req.end(function (res) {
+      console.log(res.body.daily[0]);
+      var hourName = [":sunflower:現在 ： ",":sun_with_face:正午 ： ",":crescent_moon:夕方 ： "];
+      var hour = [0,6,11];
+      for(var i=0;i<3;i++){
+        text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
+        text1+="気温"+makeEmpty(Math.floor(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
+      }
+      for(var i=0;i<7;i++){
+        text2+=weekIcon[i]+week[i]+"曜 ： "+returnWeatherIcon(res.body.daily[i].weather[0].icon)+"("+makeEmpty(res.body.daily[i].weather[0].description+")",6,1);
+        text2+=":arrow_up: "+Math.floor(res.body.daily[i].temp.max)+"℃　:arrow_down: "+Math.floor(res.body.daily[i].temp.min)+"℃\n";
+      }
+      var text = [text1,text2];
+      return resolve(text);
+    });
+  })
+}
+// iconの値から天気の絵文字を返す
+function returnWeatherIcon(iconName){
+  const iconStr = [":sunny:",":white_sun_small_cloud:",":cloud:",":cloud:",":white_sun_rain_cloud:",":umbrella:",":thunder_cloud_rain:",":snowflake:",":fog:",":boom:"];
+  const iconID = ["01","02","03","04","09","10","11","13","50"];
+  for(var i=0;i<iconID.length;i++){
+    if(iconName.match(iconID[i])) return iconStr[i];
+  }
+  return iconStr[9];
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                                                                 Game Function                                                                                                //
+//                                                                                 Anony CHANNEL                                                                                               //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function anony(message){
+  if(message.channel.id == ANONY_CHANNEL){
+    if(message.author.id == client.user.id) return;
+    anonyId++;
+    save();
+    let text = "("+anonyId+")\n"+message.content;
+    message.delete();
+    sendMsg(ANONY_CHANNEL,text);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                 Game CHANNEL                                                                                                 //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function game(message){
+  if(message.channel.id == GAME_CHANNEL){
+    if(message.author.id==client.user.id) textId = message.id;
+    else {
+      let order = message.content;
+      let name = message.member.displayName;
+      message.delete();
+      // 前フレームのメッセージを削除する
+      if(textId!=0) {
+        beforeMessage = client.channels.cache.get(GAME_CHANNEL).messages.cache.get(textId);
+        if(beforeMessage!=null)beforeMessage.delete();
+      }
+      if(gameOver){
+        score=0;
+        gameOver = false;
+        load();
+        makeField();
+      }else if(!gameOver){
+        let text = "\n";
+        nyanSitu = search();
+        if(order.match(/w/)){//上
+          move(nyanSitu,"u");
+        }else if(order.match(/s/)){//下
+          move(nyanSitu,"d");
+        }else if(order.match(/a/)){// 左
+          move(nyanSitu,"l");
+        }else if(order.match(/d/)){// 右
+          move(nyanSitu,"r");
+        }else if(order.match(/r/)) {
+          gameOver=true;
+          death();
+          score = 0;
+          name = "";
+        }
+        let obakeArray = searchObake();
+        for(var i=0;i<obakeArray.length;i++) move(obakeArray[i],dirStr[Math.floor(Math.random()*(dirStr.length))]);
+      }
+      // ランキング処理
+      let flag = true;
+      if(tmpHighScore.indexOf(name)!=-1){
+        if(tmpHighScore[tmpHighScore.indexOf(name)-1]>score) flag = false;
+      }
+      if(flag){
+        for(var i=0;i<3;i++){
+          if(score>=tmpHighScore[i*2]){
+            for(var j=0;j<6;j++) tmpHighScore[j] = highScore[j];
+            tmpHighScore[i*2] = score;
+            tmpHighScore[i*2+1] = name;
+            for(var j=i;j<2;j++){
+              tmpHighScore[(j+1)*2] = highScore[j*2];
+              tmpHighScore[(j+1)*2+1] = highScore[j*2+1];
+            }
+            save();
+            break;
+          }
+        }
+      }
+      let text="";
+      if(name!=="") text+="プレイヤー："+name;
+      text+=display();
+      sendMsg(GAME_CHANNEL,text);
+    }
+    return;
+  }
+}
 // ゲームフィールドのテキストを生成する
 function display(){
   text = "\n";
