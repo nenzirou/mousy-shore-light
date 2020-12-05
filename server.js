@@ -549,10 +549,10 @@ function opeZemi(num){
 }
 // 一周期分のゼミ順を返す
 function returnOrder(){
-  let text = "発表者順\n**次回　：";
+  let text = "発表者順\n**:arrow_forward:　";
   text += combiName(name[zemiName],addName)+"**\n";
   for(var i=1;i<name.length;i++){
-    text += "その次："+returnName(name[(zemiName+i)%6])+"\n";
+    text += ":arrow_up:　"+returnName(name[(zemiName+i)%6])+"\n";
   }
   return text;
 }
