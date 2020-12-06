@@ -4,7 +4,6 @@ const discord = require('discord.js');
 const unirest = require("unirest");// OpenWeatherMapと通信するために必要
 const client = new discord.Client();
 const {writeFileSync} =require('fs');// ファイル関係
-const {createWriteStream} =require('fs');// ファイル関係
 const {VoiceText} = require("voice-text");// 音声を読み上げてくれるやつ
 const voicetext = new VoiceText('d03x68wro08w7mz7');// 音声を読み上げてくれるやつ
 const cron = require('node-cron');// 定期的にプログラムを実行してくれるやつ
@@ -27,6 +26,7 @@ const GUILD_ID = "694442026762240090";// サーバーのID
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
 var sayQueue = [];
 var sayFlag = false;// BOTが発言中かどうかを判定する
+var teach = [];// 読み上げに教育したリスト
 // botを呼んだ時の反応
 const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！","人気者は困っちゃうにゃぁ″～！","ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！","何か用かにゃぁ″？","お″ぉ～ん！ニャンちゅうでぇ～す″！！",
           "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ","は？","いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！","な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！","んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
@@ -131,21 +131,17 @@ client.on('message', message =>{
   // 匿名チャンネルの処理
   anony(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
-  if (message.author.id == client.user.id || message.author.bot){
-    return;
-  }
+  if (message.author.id == client.user.id || message.author.bot) return;
+  // 特定のメッセージが含まれる文章は処理しない
+  if(message.content.match(/http/)) return;
   // 各種反応
   react(message);
   // ゼミ開始の処理 @zemi
   zemi(message);
-  // 司会者を教えてくれる @sikai
-  sikai(message);
   // ゼミ順を前に移動する @back
   back(message);
   // ゼミ順を後に移動する @for
   forward(message);
-  // ゼミ順を初期化する @clear
-  clear(message);
   // 発表順の確認をする @next
   next(message);
   // ゼミ順に積み残しの人を追加する @add
@@ -156,18 +152,14 @@ client.on('message', message =>{
   join(message);
   // ボイスチャンネルから切断する @leave
   leave(message);
+  // 読み上げに教育する @teach
+  teachVoice(message);
+  // 教育を削除する
+  clearVoice(message);
   // 文章の文字数をカウントする @len
   len(message);
-  // サイコロを振る @dice
-  dice(message);
-  // 時間を測る @time
-  time(message);
   // メンバーをランダムで選択する @sel
   sel(message);
-  // 文字列を装飾する @big
-  big(message);
-  // 週間天気予報を出力する @weather
-  weather(message);
   // デバッグ用 @db
   debug(message);
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
@@ -205,7 +197,7 @@ function notice(channel){
   if(today[3] == 6) text+=today[0]+"年(令和"+today[6]+"年"+zodiac[(today[0]-2020)%12]+"年)は残り"+remainingDays(today[1],today[2],1,1)+"日です。";// 毎週土曜日に今年の残りの日数を通知
   weatherForecast().then(res=>{// 天気予報の追加
     text += res[0];
-    if(today[3]==0) text += res[1];
+    text += res[1];
     sendMsg(channel,text);
   })
 }
@@ -269,15 +261,7 @@ function zemi(message){
     return;
   }
 }
-// 司会者を教えてくれる
-function sikai(message){
-  if (message.content.match(/sikai|shikai/)){
-    sendMsg(message.channel.id,"司会者："+returnName(name[(zemiName+2)%name.length]));
-    message.delete();
-    return;
-  }
-}
-// ゼミ順を前に移動する
+// ゼミ順を前に移動する for
 function back(message){
   if(message.content.match(/back/)){
     opeZemi(-1);
@@ -287,7 +271,7 @@ function back(message){
     return;
   }
 }
-// ゼミ順を後ろに移動する
+// ゼミ順を後ろに移動する back
 function forward(message){
   if(message.content.match(/for/)){
     opeZemi(1);
@@ -297,17 +281,7 @@ function forward(message){
     return;
   }
 }
-// ゼミ順を初期化する
-function clear(message){
-  if(message.content.match(/@clear/)){
-    zemiName = 0;
-    clearAddName();
-    save();
-    sendReply(message,"ゼミ順を初期化しました。");
-    return;
-  }
-}
-// ゼミ順を確認する
+// ゼミ順を確認する next
 function next(message){
   if(message.content.match(/next/)){
     let text = returnOrder();
@@ -316,7 +290,7 @@ function next(message){
     return;
   }
 }
-// 積み残しの人を追加する
+// 積み残しの人を追加する add
 function add(message){
   if(message.content.match(/@add/)){
     var str = message.content.split(" ");
@@ -340,7 +314,7 @@ function add(message){
     return;
   }
 }
-// 積み残しリストを削除する
+// 積み残しリストを削除する take
 function take(message){
   if(message.content.match(/take/)){
     clearAddName();
@@ -351,7 +325,7 @@ function take(message){
     return;
   }
 }
-// メッセージを送った人のいるボイスチャンネルに接続する
+// メッセージを送った人のいるボイスチャンネルに接続する join
 function join(message){
   if (message.content.match(/join/)) {
     let ch = message.member.voice.channel;
@@ -362,7 +336,7 @@ function join(message){
     return;
   }
 }
-// ボイスチャンネルから切断する
+// ボイスチャンネルから切断する leave
 function leave(message){
   if (message.content.match(/leave/)) {
     if(client.voice.connections.get(GUILD_ID)==null)sendMsg(message.channel.id, "botがボイスチャンネルに入室していません。");
@@ -372,7 +346,41 @@ function leave(message){
     return;
   }
 }
-  // 文字数を計測する
+// 読み上げに教育する teach
+function teachVoice(message){
+  if (message.content.match(/teach/)) {
+    var str = message.content.split(" ");
+    if(str.length==3){
+      teach.push(str[1]);
+      teach.push(str[2]);
+      sendMsg(message.channel.id, teachText());
+      save();
+    }else{
+      sendMsg(message.channel.id, "「teach 読み方を変更する文字列 読み方」のように入力してください。");
+    }
+    message.delete();
+    return;
+  }
+}
+// 教育を削除する clear
+function clearVoice(message){
+  if (message.content.match(/clear/)) {
+    var str = message.content.split(" ");
+    if(str.length==2){
+      var loop = teach.length;
+      for(var i=0;i<loop;i+=2){
+        if(teach[i]===str[1]) teach.splice(i,2);
+      }
+      sendMsg(message.channel.id, teachText());
+      save();
+    }else{
+      sendMsg(message.channel.id, "「clear 削除したい文字列」のように入力してください。");
+    }
+    message.delete();
+    return;
+  }
+}
+  // 文字数を計測する len
 function len(message){
   if(message.content.match(/len/)){
     var str = message.content.split(" ");
@@ -390,48 +398,7 @@ function len(message){
     return;
   }
 }
-  // サイコロを振る
-function dice(message){
-  if(message.content.match(/dice/)){
-    var str = message.content.split(" ");
-    var text = message.member.displayName+"が"+str[1]+"面ダイスを"+str[2]+"回振りました。";
-    if(str.length==3||str.length==4){
-      var m = str[1];
-      var n = str[2];
-      if(n <= 300) text += "\n出目：";
-      var sum = 0;
-      for(var i=0;i<n;i++){
-        var tmp = Math.floor(Math.random()*m)+1;
-        if(n<= 300) text += tmp+" ";
-        sum += tmp;
-      }
-      if(n != 1) {
-        text = text + "\n合計："+sum;
-        if(str.length==4) text = text + "\n平均："+(sum/n).toFixed(3);
-      }
-    }else{
-      text = "ん″にゃ″はぁ″！m面のダイスをn回振るには「dice m n」と半角スペースで区切って入力してくださぁ″～い。"
-    }
-    sendMsg(message.channel.id,text);
-    message.delete();
-    return;
-  }
-}
-  // タイマー機能
-function time(message){
-  if (message.content.match(/time/)){
-    var str = message.content.split(" ");
-    if(Number(str[1])<=99){
-      sendMsg(message.channel.id, "今からミ″ーが"+str[1]+"分数えてあげるにゃぁ″！よ～いドォ″ン″！");
-      setTimeout(function() {
-        sendReply(message,"にゃ″～んにゃ″にゃ″～ん！！"+str[1]+"分経ったにゃぁ″！！");   
-      },Number(str[1])*1000*60);
-    }else sendMsg(message.channel.id, "時間を測るには@time n(1~99の間)と入力してほしいにゃ″ん！");
-    message.delete();
-    return;
-  }
-}
-  // ランダムセレクト
+// ランダムセレクト sel
 function sel(message){
   if (message.content.match(/sel/)){
     var str = message.content.split(" ");
@@ -447,29 +414,7 @@ function sel(message){
     return;
   }
 }
-  // 文字を装飾して返す
-function big(message){
-  if(message.content.match(/big/)){
-    var str = message.content.split(" ");
-    const symbol = ['＊', '＆', '＃', '＄', '￥','？','＋'];
-    var text = makeSurText(str[1],symbol[Math.floor(Math.random()*symbol.length)]);
-    message.delete();
-    sendMsg(message.channel.id,text);
-    return;
-  }
-}
-// 天気予報を返す
-function weather(message){
-  if(message.content.match(/wt/)){
-    let text = "";
-    weatherForecast().then(res=>{// 天気予報の追加
-      text += res[1];
-      sendMsg(message.channel.id,text);
-    });
-    message.delete();
-  }
-}
-// デバッグ用
+// デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
     notice(BOT_CHANNEL);
@@ -582,8 +527,9 @@ function say(){
 }
 // テキストとスピーカーを指定してボイスチャンネルで発言する
 function speak(text,speaker){
-  text = text.replace("稲守","いなもり");
-  text = text.replace("虫鹿","むしか");
+  for(var i=0;i<teach.length;i+=2){
+    text = text.split(teach[i]).join(teach[i+1]);
+  }
   sayFlag = true;
   voicetext.fetchBuffer(text, { speaker:speaker,format: 'ogg' })
   .then((buffer) => {
@@ -602,11 +548,10 @@ function save(){
   if(addName.length==1){
     text+="none";
   }else{
-    for(var i=1;i<addName.length;i++){
-      text+=addName[i];
-      if(i!=addName.length-1) text+=",";
-    }
+    text+=addName.join(",");
   }
+  text+="\n";
+  text+=teach.join(",");
   fs.writeFile("tex.txt", text, (err) => {
     if (err) throw err;
   });
@@ -616,7 +561,9 @@ function save(){
 function load(){
   fs.readFile("tex.txt", "utf-8", (err, data) => {
     if (err) throw err;
-    let str = data.split(",");
+    let d = data.split("\n");
+    let str = d[0].split(",");
+    let td = d[1].split(",");
     zemiName = Number(str[0]);
     anonyId = str[1];
     if(str[2]!=="none"){
@@ -624,6 +571,7 @@ function load(){
         addName.push(str[i+2]);
       }
     }
+    teach = td;
   });
 }
 // ステータスをランダムに変更する
@@ -680,7 +628,7 @@ function remainingDays(month1,day1,month2,day2){
 // 今日の天気予報の文字列をpromiseで返す
 function weatherForecast(){
   var text1 = "\n**☆本日の岐阜市の天気予報☆**\n";
-  var text2 = "\n**☆今週の岐阜市の天気予報☆**\n";
+  var text2 = "\n**☆岐阜市の週間天気予報☆**\n";
   var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜大学周辺の天気をもらってくる
   return new Promise((resolve, reject) => { 
     req.end(function (res) {
@@ -713,6 +661,16 @@ function returnWeatherIcon(iconName){
   }
   return iconStr[9];
 }
+// 教育文字一覧のテキストを返す
+function teachText(){
+  let text = "";
+  for(var i=0;i<teach.length;i+=2){
+    text+=teach[i]+"　:arrow_forward:　"+teach[i+1];
+    if(i!=teach.length-2) text+="\n";
+  }
+  return text;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                 Anony CHANNEL                                                                                               //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
