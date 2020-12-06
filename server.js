@@ -26,6 +26,7 @@ const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
 const GUILD_ID = "694442026762240090";// サーバーのID
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
+var sayQueue = [];
 // botを呼んだ時の反応
 const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！","人気者は困っちゃうにゃぁ″～！","ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！","何か用かにゃぁ″？","お″ぉ～ん！ニャンちゅうでぇ～す″！！",
           "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ","は？","いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！","な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！","んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
@@ -103,9 +104,10 @@ http.createServer(function(req, res){
 
 // コンストラクタ
 client.on('ready', message =>{
+  console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
   client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 }).then(messages => messages.forEach(message=>message.delete()));// ゲームチャンネルのテキストメッセージを削除する
-  sendMsg(GAME_CHANNEL,display());// ゲーム画面表示
+  //sendMsg(GAME_CHANNEL,display());// ゲーム画面表示
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -120,24 +122,26 @@ cron.schedule('0 10 * * 1,2,4', () => {
 cron.schedule('0 * * * *', () => {
   changeState();
 });
+cron.schedule('0,10,20,30,40,50 * * * * *',()=>{
+  say();
+});
 
 // ボイスチャンネルが更新されたときの処理
 client.on('voiceStateUpdate', (oldMember, newMember) => {
   const conn = client.voice.connections.get(GUILD_ID);
   if(newMember.channel !== null&&newMember.id!=client.user.id){// 誰かがボイスチャンネルに接続したらbotもそのチャンネルに接続する
     newMember.channel.join();
-    console.log(newMember.channel.name+"に接続");
+    console.log("接続　：　"+newMember.channel.name);
   }else if(conn && conn.channel && conn.channel.members.array().length < 2) {// ボイスチャンネルにbotしかいなくなった場合に切断する
+    console.log("切断　：　"+conn.channel.name);
     conn.disconnect();
-    console.log("ボイスチャンネルから切断");
   }
 });
 
 // ユーザのコメントに対する反応系
-client.on('message', async message =>{
+client.on('message', message =>{
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if(!message.content.match(/@|＠|http| /)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL) 
-    say(message.member.displayName.substr(0,2)+"、"+message.content,voiceTable[message.member.id%voiceTable.length]);
+  if(!message.content.match(/@|＠|http|zemi/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) sayQueue.push(message);
   // ゲームチャンネルの処理
   game(message);
   // 匿名チャンネルの処理
@@ -262,17 +266,17 @@ function react(message){
 // ゼミ開始の処理
 function zemi(message){
   if (message.content.match(/zemi|ゼミ始|ゼミです|ゼミやりま|ゼミっす|ゼミ。|ぜみ。|ゼミ開始|ぜみ開始/)){
-    console.log("ゼミ開始");
     let text = "everyone\nゼミが始まります！\n**発表者："+combiName(name[zemiName],addName)+"**\n司会　："+returnName(name[(zemiName+2)%name.length]);
+    speak("今日のゼミの発表者は、"+combiName(name[zemiName],addName)+"です。"+"司会は"+returnName(name[(zemiName+2)%name.length])+"です。よろしくお願いします。",voiceTable[Math.floor(Math.random()*voiceTable.length)]);
     if(message.channel.id==BOT_CHANNEL){
-      sendMsg(BOT_CHANNEL,text);
+      sendMsg(BOT_CHANNEL,"http"+text);
     }else {
       text = "@"+text;
       sendMsg(NOTICE_CHANNEL,text);
+      opeZemi(1);
+      clearAddName();
     }
     if(message.content.match(/zemi/)) message.delete();
-    clearAddName();
-    opeZemi(1);
     save();
   }
 }
@@ -487,13 +491,13 @@ function sendReply(message, text){
 // 指定したチャンネルにメッセージを送る
 function sendMsg(channelId, text, option={}){
   client.channels.cache.get(channelId).send(text, option)
-    .then(console.log("メッセージ送信"+text.substr(0,50)))
+    .then(console.log("メッセージ送信{\n"+text.substr(0,50)+"\n}"))
     .catch(console.error);
 }
 // 通常の発表者と積み残しの発表者名を結合して返す
 function combiName(zemi,add){
   let text = returnName(zemi);
-  if(add[0]!=="") text+="、"+returnName(add);
+  if(add.length>1) text+=returnName(add);
   return text;
 }
 // 名前の配列を渡すと、テキストの形に連結してくれる
@@ -571,15 +575,23 @@ function clearAddName(){
   addName = [""];
 }
 // botにボイスチャンネルで発言させる
-async function say(str,speaker){
-  if(speaker==="def") speaker = "hikari";// スピーカーがデフォルトの場合
-  if(client.voice.connections.get(GUILD_ID)!=undefined){
-    await voicetext.fetchBuffer(str, { speaker:speaker,format: 'ogg' })
-      .then((buffer) => {
-        writeFileSync('voice.ogg', buffer);
-        client.voice.connections.get(GUILD_ID).play('voice.ogg');
-    });
+var say = function(){
+  if(sayQueue.length){// キューにメッセージがある場合のみ
+    var msg = sayQueue.shift();// メッセージをリストから取り出す
+    var speaker = voiceTable[msg.member.id%voiceTable.length];// 読み上げる声をIDから決定する
+    var sayText = msg.member.displayName.substr(0,2)+"、"+msg.content;// 読み上げる内容を決定する
+    speak(sayText,speaker);
   }
+}
+// テキストとスピーカーを指定してボイスチャンネルで発言する
+function speak(text,speaker){
+  text = text.replace("稲守","いなもり");
+  text = text.replace("虫鹿","むしか");
+  voicetext.fetchBuffer(text, { speaker:speaker,format: 'ogg' })
+  .then((buffer) => {
+    writeFileSync('voice.ogg', buffer);
+    client.voice.connections.get(GUILD_ID).play('voice.ogg');
+  });
 }
 // ファイルに書き込む
 function save(){
