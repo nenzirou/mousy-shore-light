@@ -472,6 +472,7 @@ function big(message){
 function debug(message){
   if(message.content.match(/@db/)){
     notice(BOT_CHANNEL);
+    message.delete();
   }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -675,19 +676,21 @@ function remainingDays(month1,day1,month2,day2){
 function weatherForecast(){
   var text1 = "\n**☆本日の岐阜市の天気予報☆**\n";
   var text2 = "\n**☆今週の岐阜市の天気予報☆**\n";
-  var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4671165&lon=136.7333167&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜大学周辺の天気をもらってくる
+  var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜大学周辺の天気をもらってくる
   return new Promise((resolve, reject) => { 
     req.end(function (res) {
+      console.log(res.body.current);
       console.log(res.body.daily[0]);
+      //console.log(res.body);
       var hourName = [":sunflower:現在 ： ",":sun_with_face:正午 ： ",":crescent_moon:夕方 ： "];
       var hour = [0,6,11];
       for(var i=0;i<3;i++){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
-        text1+="気温"+makeEmpty(Math.floor(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
+        text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
       }
       for(var i=0;i<7;i++){
         text2+=weekIcon[i]+week[i]+"曜 ： "+returnWeatherIcon(res.body.daily[i].weather[0].icon)+"("+makeEmpty(res.body.daily[i].weather[0].description+")",6,1);
-        text2+=":arrow_up: "+Math.floor(res.body.daily[i].temp.max)+"℃　:arrow_down: "+Math.floor(res.body.daily[i].temp.min)+"℃\n";
+        text2+=":arrow_up: "+Math.round(res.body.daily[i].temp.max)+"℃　:arrow_down: "+Math.round(res.body.daily[i].temp.min)+"℃\n";
       }
       var text = [text1,text2];
       return resolve(text);

@@ -6,6 +6,7 @@ dependencies:
   node-cron: 2.0.3
   opusscript: 0.0.7
   querystring: 0.2.0
+  unirest: 0.6.0
   voice-text: 0.1.2
   voicetext: 0.0.7
   ytdl-core: 3.3.0
@@ -523,6 +524,16 @@ packages:
       node: '>= 0.8'
     resolution:
       integrity: sha1-TuQ0bm61Ni6DRKAgdb2NvYxzc+o=
+  /form-data/0.2.0:
+    dependencies:
+      async: 0.9.2
+      combined-stream: 0.0.7
+      mime-types: 2.0.14
+    dev: false
+    engines:
+      node: '>= 0.8'
+    resolution:
+      integrity: sha1-Jvi8JtpkQOKZy9z7aQNcT3em5GY=
   /form-data/2.3.3:
     dependencies:
       asynckit: 0.4.0
@@ -817,12 +828,26 @@ packages:
       node: '>= 0.6'
     resolution:
       integrity: sha1-VSmk1nZUE07cxSZmVoNbD4Ua/O4=
+  /mime-db/1.12.0:
+    dev: false
+    engines:
+      node: '>= 0.6'
+    resolution:
+      integrity: sha1-PQxjGA9FjrENMlqqN9fFiuMS6dc=
   /mime-db/1.44.0:
     dev: false
     engines:
       node: '>= 0.6'
     resolution:
       integrity: sha512-/NOTfLrsPBVeH7YtFPgsVWveuL+4SjjYxaQ1xtM1KMFj7HdxlBlxeyNLzhyJVx7r4rZGJAZ/6lkKCitSc/Nmpg==
+  /mime-types/2.0.14:
+    dependencies:
+      mime-db: 1.12.0
+    dev: false
+    engines:
+      node: '>= 0.6'
+    resolution:
+      integrity: sha1-MQ4VnbI+B3+Lsit0jav6SVcUCqY=
   /mime-types/2.1.27:
     dependencies:
       mime-db: 1.44.0
@@ -842,6 +867,13 @@ packages:
     hasBin: true
     resolution:
       integrity: sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==
+  /mime/2.4.6:
+    dev: false
+    engines:
+      node: '>=4.0.0'
+    hasBin: true
+    resolution:
+      integrity: sha512-RZKhC3EmpBchfTGBVb8fb+RL2cWyw/32lshnsETttkBAyAUXSGHxbEJWWRXc751DrIxG1q04b8QwMbAwkRPpUA==
   /miniget/1.7.2:
     dev: false
     engines:
@@ -1440,6 +1472,14 @@ packages:
     dev: false
     resolution:
       integrity: sha512-kMBmblijHJXyOpKzgDhKx9INYU4u4E1RPMB0HqmKSgWG8vEcf3exEfLh4FFfzd3xdQOw9EuIy/cP0akY6rHopQ==
+  /unirest/0.6.0:
+    dependencies:
+      form-data: 0.2.0
+      mime: 2.4.6
+      request: 2.88.2
+    dev: false
+    resolution:
+      integrity: sha512-BdYdcYJHXACqZ53k8Zz7QlNK/1W/HjCZlmg1OaaN/oTSp4FTWh0upXGSJsG88PljDBpSrNc2R649drasUA9NEg==
   /unpipe/1.0.0:
     dev: false
     engines:
@@ -1543,6 +1583,7 @@ specifiers:
   node-cron: ^2.0.3
   opusscript: 0.0.7
   querystring: ^0.2.0
+  unirest: ^0.6.0
   voice-text: ^0.1.2
   voicetext: 0.0.7
   ytdl-core: ^3.3.0
