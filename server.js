@@ -64,22 +64,6 @@ let zemiName = 0;// 発表者の配列番号
 let addName = [""];
 const fs = require("fs");
 let anonyId = 0;
-
-// ゲームに使う変数
-let highScore = ["","","","","",""];
-let tmpHighScore = ["","","","","",""];
-let textId = 0;
-let text =0;
-let beforeMessage;
-let score = 0;
-const width = 6;// ゲーム盤の横幅
-const height = 6;// ゲーム盤の縦幅
-let nyanSitu = 0;
-let gameOver = false;
-const dirStr = ["u","d","r","l"];
-let tile = ["<:floor:767329931356930058>","<:nyan:767331341212581888>","<:death:767774739195494480>","<:stone:768087754466525205>","<:enemy:768089974095872040>","<:eggRice:768090009915490354>",""];
-let field = new Array(width*height);
-makeField();
 load();// データをロードする
 
 // サーバーを作成する
@@ -114,8 +98,7 @@ http.createServer(function(req, res){
 client.on('ready', message =>{
   console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
-  client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 }).then(messages => messages.forEach(message=>message.delete()));// ゲームチャンネルのテキストメッセージを削除する
-  //sendMsg(GAME_CHANNEL,display());// ゲーム画面表示
+  //client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 }).then(messages => messages.forEach(message=>message.delete()));// ゲームチャンネルのテキストメッセージを削除する
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -145,8 +128,6 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 
 // ユーザのコメントに対する反応系
 client.on('message', message =>{
-  // ゲームチャンネルの処理
-  game(message);
   // 匿名チャンネルの処理
   anony(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
@@ -615,43 +596,34 @@ function speak(text,speaker){
   });
 }
 // ファイルに書き込む
+// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト
 function save(){
-  let text = zemiName+"\n";
-  for(var i=1;i<addName.length;i++){
-    text+=addName[i];
-    if(i!=addName.length-1) text+=",";
-  }
+  let text = zemiName+","+anonyId+",";
   if(addName.length==1){
-    text = zemiName+"\nnone";
+    text+="none";
+  }else{
+    for(var i=1;i<addName.length;i++){
+      text+=addName[i];
+      if(i!=addName.length-1) text+=",";
+    }
   }
-  text+="\n";
-  for(var i=0;i<tmpHighScore.length;i++) {
-    text+=tmpHighScore[i];
-    if(i!=tmpHighScore.length-1) text+=",";
-  }
-  text+="\n"+anonyId;
   fs.writeFile("tex.txt", text, (err) => {
     if (err) throw err;
   });
 }
 // ファイルを読み込む
+// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト
 function load(){
   fs.readFile("tex.txt", "utf-8", (err, data) => {
     if (err) throw err;
-    let str = data.split("\n");
+    let str = data.split(",");
     zemiName = Number(str[0]);
-    let str2 = str[1].split(",");
-    if(str[1]!=="none"){
-      for(var i=0;i<str2.length;i++){
-        addName.push(str2[i]);
+    anonyId = str[1];
+    if(str[2]!=="none"){
+      for(var i=0;i<str.length-2;i++){
+        addName.push(str[i+2]);
       }
     }
-    let str3 = str[2].split(",");
-    for(var i=0;i<6;i++) {
-      highScore[i]=str3[i];
-      tmpHighScore[i]=str3[i];
-    }
-    anonyId = str[3];
   });
 }
 // ステータスをランダムに変更する
@@ -758,211 +730,3 @@ function anony(message){
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                 Game CHANNEL                                                                                                 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function game(message){
-  if(message.channel.id == GAME_CHANNEL){
-    if(message.author.id==client.user.id) textId = message.id;
-    else {
-      let order = message.content;
-      let name = message.member.displayName;
-      message.delete();
-      // 前フレームのメッセージを削除する
-      if(textId!=0) {
-        beforeMessage = client.channels.cache.get(GAME_CHANNEL).messages.cache.get(textId);
-        if(beforeMessage!=null)beforeMessage.delete();
-      }
-      if(gameOver){
-        score=0;
-        gameOver = false;
-        load();
-        makeField();
-      }else if(!gameOver){
-        let text = "\n";
-        nyanSitu = search();
-        if(order.match(/w/)){//上
-          move(nyanSitu,"u");
-        }else if(order.match(/s/)){//下
-          move(nyanSitu,"d");
-        }else if(order.match(/a/)){// 左
-          move(nyanSitu,"l");
-        }else if(order.match(/d/)){// 右
-          move(nyanSitu,"r");
-        }else if(order.match(/r/)) {
-          gameOver=true;
-          death();
-          score = 0;
-          name = "";
-        }
-        let obakeArray = searchObake();
-        for(var i=0;i<obakeArray.length;i++) move(obakeArray[i],dirStr[Math.floor(Math.random()*(dirStr.length))]);
-      }
-      // ランキング処理
-      let flag = true;
-      if(tmpHighScore.indexOf(name)!=-1){
-        if(tmpHighScore[tmpHighScore.indexOf(name)-1]>score) flag = false;
-      }
-      if(flag){
-        for(var i=0;i<3;i++){
-          if(score>=tmpHighScore[i*2]){
-            for(var j=0;j<6;j++) tmpHighScore[j] = highScore[j];
-            tmpHighScore[i*2] = score;
-            tmpHighScore[i*2+1] = name;
-            for(var j=i;j<2;j++){
-              tmpHighScore[(j+1)*2] = highScore[j*2];
-              tmpHighScore[(j+1)*2+1] = highScore[j*2+1];
-            }
-            save();
-            break;
-          }
-        }
-      }
-      let text="";
-      if(name!=="") text+="プレイヤー："+name;
-      text+=display();
-      sendMsg(GAME_CHANNEL,text);
-    }
-    return;
-  }
-}
-// ゲームフィールドのテキストを生成する
-function display(){
-  text = "\n";
-  for(var i=0;i<width*height;i++){
-    text+=tile[field[i]];
-    if(i%width==width-1) text+="\n";
-  }
-  text+="上(w) 下(s) 右(d) 左(a) 不動(q) リセット(r)\nscore:"+score;
-  if(gameOver) text+="\nニャンちゅうは死んだよ。";
-  for(var i=0;i<3;i++){
-    text+="\n"+(i+1)+"位:"+tmpHighScore[i*2]+"点("+tmpHighScore[i*2+1]+")";
-  }
-  return text;
-}
-// 指定した配列の隣の配列番号を返す
-function getNum(id,str){
-  if(str=="r"){
-    id+=1;
-    if(id%width==0)return "none";
-  }else if(str=="l"){
-    id-=1;
-    if(id%width==width-1) return "none";
-  } else if(str=="u") {
-    id-=width;
-    if(id<0) return "none";
-  }else if(str=="d") {
-    id+=width;
-    if(id>=width*height) return "none";
-  }
-  return id;
-}
-// 指定した配列のオブジェクトを移動させる
-function move(id,str){
-  let tmp = getNum(id,str);
-  let egg = false;
-  if(tmp!="none"){
-    if(field[tmp]!=3) {
-      if(field[tmp]==5&&field[id]==1||field[tmp]==5&&field[id]==4) {
-        if(field[id]==1) score++;
-        egg = true;
-      }else if(field[tmp]==4&&field[id]==1){
-        gameOver=true;
-        death();
-      }else if(field[tmp]==1&&field[id]==4){
-        gameOver = true;
-        death();
-      }
-      if(!gameOver){
-        field[tmp]=field[id];
-        field[id]=0;
-        if(egg) {
-          makeEgg();
-          if(Math.random()<0.5) makeObake();
-        }
-      }
-    }
-  }else return "none";
-}
-// ニャンちゅうの位置を探す
-function search(){
-  for(var i=0;i<width*height;i++){
-    if(field[i]==1) return i;
-  }
-  return 0;
-}
-// ニャンちゅうの葬式を行う
-function death(){
-  let ny = search();
-  field[ny] = 2;
-}
-// たまごかけご飯を生成
-function makeEgg(){
-  for(var i=0;i<1;i++){
-    let tmp = Math.floor(Math.random()*width*height);
-    if(field[tmp]==0) {
-      field[tmp]=5;
-      for(var j=0;j<4;j++){
-        let tmp2 = getNum(tmp,dirStr[j]);
-        if(tmp2!="none"){
-          if(field[tmp2]==1) {
-            field[tmp]=0;
-            i--;
-            continue;
-          }
-        }
-      }
-    }else i--;
-  }
-}
-// お化けの位置を探す
-function searchObake(){
-  let array=[];
-  for(var i=0;i<width*height;i++){
-    if(field[i]==4) array.push(i);
-  }
-  return array;
-}
-// お化けを生成
-function makeObake(){
-  for(var i=0;i<1;i++){
-    let tmp = Math.floor(Math.random()*width*height);
-    if(field[tmp]==0) {
-      field[tmp]=4;
-      for(var j=0;j<4;j++){
-        let tmp2 = getNum(tmp,dirStr[j]);
-        if(tmp2!="none"){
-          if(field[tmp2]==1) {
-            field[tmp]=0;
-            i--;
-            continue;
-          }
-        }
-      }
-    }else i--;
-  }
-}
-// 岩を生成
-function makeStone(i){
-  field[i] = 3;
-  for(var j=0;j<dirStr.length;j++){// 上下左右が床の場合のみ岩を生成する
-    var tmp = getNum(i,dirStr[j]);
-    if(tmp!="none"){
-      if(field[tmp]!=0) {
-        field[i]=0;
-        break;
-      }
-    } 
-  }
-}
-// フィールドを作成する
-function makeField(){
-  for(var i=0;i<width*height;i++) field[i]=0;// フィールドを床で埋め尽くす
-  nyanSitu = Math.floor(Math.random()*width*height);
-  field[nyanSitu] = 1;// ニャンちゅう配置
-  for(var i=0;i<width*height;i++){
-    if(i==nyanSitu) continue;
-    if(Math.random()<0.2){
-      makeStone(i);
-    }
-  }
-  for(var i=0;i<3;i++)makeObake();
-  for(var i=0;i<2;i++)makeEgg();
-}
