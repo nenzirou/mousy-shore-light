@@ -5,7 +5,6 @@ const unirest = require("unirest");// OpenWeatherMapと通信するために必�
 const client = new discord.Client();
 const {writeFileSync} =require('fs');// ファイル関係
 const {createWriteStream} =require('fs');// ファイル関係
-const ytdl = require('ytdl-core');// youtubeの音声を再生してくれるやつ
 const {VoiceText} = require("voice-text");// 音声を読み上げてくれるやつ
 const voicetext = new VoiceText('d03x68wro08w7mz7');// 音声を読み上げてくれるやつ
 const cron = require('node-cron');// 定期的にプログラムを実行してくれるやつ
@@ -34,22 +33,30 @@ const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″
           "次のゼミが待ち遠しいにゃぁ″！","お″ねぇ″さ″ん″がいつのまにか40代になってたにゃぁ″...","やっぱりたまごかけご飯はおいしいにゃぁん！！","真の卵賭けご飯を見せてやるにゃ″ん！","お″ね″え″さんの生態を学会に発表したにゃ″ん！！","ぃや″っぱりぃ″！？"
           ,"FXで有り金全部溶かしたにゃ″ん″！！！"];
 // botのプレイしているゲーム
-const state = ["お″ねぇ″さ″ん","PLAYING","あ″い″ちゅあ″ん","PLAYING","あなた","WATCHING","滅びた世界","LISTENING","㊙ビデオ","WATCHING","コンピューターおばあちゃん","LISTENING","BlockRoom","WATCHING","3Dプリンタ","PLAYING","カタン","PLAYING","湯沸し器","WATCHING","木島先生","WATCHING","卵かけご飯","WATCHING"
-              ,"深淵","WATCHING","君が代","LISTENING","毛髪","LISTENING","ニャンちゅう","PLAYING","天井","WATCHING","挫けた心","LISTENING","ピクミン","PLAYING","スマブラ","PLAYING","スプラトゥーン","PLAYING","NHK","WATCHING","お姉さんの生態","WATCHING","お姉さんのお風呂","WATCHING","デュフｗコポォｗ","WATCHING"
-              ,"FX","PLAYING","パチンコ","PLAYING","競馬","WATCHING","生命","LISTENING","ニャンちゅうといっしょ","WATCHING","おかあさんといっしょ","WATCHING","ニャンちゅう","WATCHING","夏目漱石","LISTENING","OculusQuest2","PLAYING","ViveCosmos","PLAYING","FOVE0","PLAYING","情熱大陸","WATCHING","プロフェッショナル","WATCHING"
-              ,"ラーメン","WATCHING","地上の星","LISTENING","バーチャルボーイ","PLAYING","PlayStation","PLAYING","PlayStation2","PLAYING","任天堂64","PLAYING","ゲームボーイ","PLAYING","ゲームキューブ","PLAYING","WiiFit","PLAYING","ファミコン","PLAYING"
-              ,"ゲーム&ウオッチ","PLAYING","おじゃる丸","WATCHING","しまじろう","WATCHING","アンパンマン","WATCHING","アカシックレコード","WATCHING","メイドインアビス","WATCHING","オリンピック","PLAYING","ベルリンの壁","LISTENING","縺薙ｓ縺ｫ縺｡縺ｯ縺薙ｓ縺ｰ繧薙ｏ","PLAYING"
-              ,"ノートルダム大聖堂","LISTENING","汚染された川","LISTENING","人生","LISTENING","仮想通貨","PLAYING","宝くじ","PLAYING","パチスロ","PLAYING","麻雀","PLAYING","24歳学生です。","PLAYING","玉ねぎ","PLAYING","タラバガニ","PLAYING","大根おろし","PLAYING"
-              ,"個人民事","LISTENING","この虫野郎","WATCHING","例のアレ","WATCHING","作ってワクワク","WATCHING","焼肉","PLAYING","パラパラ","WATCHING","ピクミン4","PLAYING","スプラトゥーン3","PLAYING","PS5","PLAYING","サツマイモ","PLAYING","塊魂","PLAYING","ポケモン","PLAYING","女の子","WATCHING","男の子","WATCHING"];
+const state = ["お″ねぇ″さ″ん","PLAYING","あ″い″ちゅあ″ん","PLAYING","あなた","WATCHING","滅びた世界","LISTENING","㊙ビデオ","WATCHING","コンピューターおばあちゃん","LISTENING","BlockRoom","WATCHING","3Dプリンタ","PLAYING",
+               "カタン","PLAYING","湯沸し器","WATCHING","木島先生","WATCHING","卵かけご飯","WATCHING","深淵","WATCHING","君が代","LISTENING","毛髪","LISTENING","ニャンちゅう","PLAYING","天井","WATCHING","挫けた心","LISTENING",
+               "ピクミン","PLAYING","スマブラ","PLAYING","スプラトゥーン","PLAYING","NHK","WATCHING","お姉さんの生態","WATCHING","お姉さんのお風呂","WATCHING","デュフｗコポォｗ","WATCHING","FX","PLAYING","パチンコ","PLAYING",
+               "競馬","WATCHING","生命","LISTENING","ニャンちゅうといっしょ","WATCHING","おかあさんといっしょ","WATCHING","ニャンちゅう","WATCHING","夏目漱石","LISTENING","OculusQuest2","PLAYING","ViveCosmos","PLAYING",
+               "FOVE0","PLAYING","情熱大陸","WATCHING","プロフェッショナル","WATCHING","ラーメン","WATCHING","地上の星","LISTENING","バーチャルボーイ","PLAYING","PlayStation","PLAYING","PlayStation2","PLAYING",
+               "任天堂64","PLAYING","ゲームボーイ","PLAYING","ゲームキューブ","PLAYING","WiiFit","PLAYING","ファミコン","PLAYING","ゲーム&ウオッチ","PLAYING","おじゃる丸","WATCHING","しまじろう","WATCHING",
+               "アンパンマン","WATCHING","アカシックレコード","WATCHING","メイドインアビス","WATCHING","オリンピック","PLAYING","ベルリンの壁","LISTENING","縺薙ｓ縺ｫ縺｡縺ｯ縺薙ｓ縺ｰ繧薙ｏ","PLAYING","ノートルダム大聖堂","LISTENING",
+               "汚染された川","LISTENING","人生","LISTENING","仮想通貨","PLAYING","宝くじ","PLAYING","パチスロ","PLAYING","麻雀","PLAYING","24歳学生です。","PLAYING","玉ねぎ","PLAYING","タラバガニ","PLAYING","大根おろし","PLAYING",
+               "個人民事","LISTENING","この虫野郎","WATCHING","例のアレ","WATCHING","作ってワクワク","WATCHING","焼肉","PLAYING","パラパラ","WATCHING","ピクミン4","PLAYING","スプラトゥーン3","PLAYING","PS5","PLAYING",
+               "サツマイモ","PLAYING","塊魂","PLAYING","ポケモン","PLAYING","女の子","WATCHING","男の子","WATCHING","ヤクルト","PLAYING","吾輩は猫である","LISTENING","昆布茶","PLAYING","ミーは灰皿じゃないにゃ″ぁぁぁ！","PLAYING",
+               "春はあけぼの","PLAYING","夏は夜","PLAYING","秋は夕暮れ","PLAYING","冬はつとめて","PLAYING","天才とは1%のひらめきと99%の努力である","PLAYING","あきらめたら、そこで試合終了ですよ","LISTENING","豆","PLAYING",
+               "孤独な者よ、君は創造者の道を行く","LISTENING","天才とは努力する凡才のことである","LISTENING","我思う、故に我有り","LISTENING","くるくるくるりん","PLAYING","ミ”ーは食用じゃないにゅあ”ぁん！！","PLAYING"];
+// 誰かがありがとうなど発言したときの返し
 const thanks = ["サンキュでぇ～す！","ん優しい世界ぃ″！","ありがとうございまぁ″～す！","素敵だにゃ″ぁ！","にゃ″はは！","あったかいにゃ″ぁ","いぇ″～い″！！","んほぉ″～！！",
                 "社会貢献だにゃ″ぁ！","お″ね″ぇさ″んも喜んでるにゃ″ぁ！","あぁ″＾～感謝の言葉がぴょんぴょんするんにゃ″ぁ～","はぁ″い！","感謝感謝にゃ″ぁ～","気持ちがええんにゃ″ぁ～",
                 "やったぜ。","ありがとうは世界を救うにゃ″ぁ～","どゅ″ふ″ふ″、あったかいにゃ″～","おじさんもきっと喜んでるにゃ！"];
-const apo = ["","","","","","","","","","","",""];
+// 誰かがごめんなさいなど発言したときの返し
+const apo = ["そういうときもあるにゃぁ","つぎからがんばればいいにゃぁ","しかたないにゃぁ","ミーも一緒にあやまるにゃぁ","はい、ごめんなさ″～い","ここはミーに任せてはやく逃げるにゃ”！","正直に謝ればみんな許してくれるにゃぁ",
+             "きりかえていくにゃぁ","またつぎがあるにゃぁ","ここはミーに免じてゆるしてほしいにゃぁ”！","ボコルならミーをボコるにゃ！！","誰にでもしっぱいはあるにゃぁ"];
 // 日付の処理用
-const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
-const monthDay = [31,28,31,30,31,30,31,31,30,31,30,31];
+const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];// 干支
+const monthDay = [31,28,31,30,31,30,31,31,30,31,30,31];// 各月の日数
 const week = ["日","月","火","水","木","金","土"];
-const weekIcon = [":orange_circle:",":white_circle:",":red_circle:",":blue_circle:",":green_circle:",":yellow_circle:",":brown_circle:"];
+const weekIcon = [":orange_circle:",":white_circle:",":red_circle:",":blue_circle:",":green_circle:",":yellow_circle:",":brown_circle:"];// 曜日のアイコン名
 const zemiWeek = [1,2,4];// 曜日を数値で表す0~6 日~土
 const zemiTime = [16,"30",14,"45",14,"45"];// zemiWeekに対応するゼミの開始時間
 let zemiName = 0;// 発表者の配列番号
@@ -140,8 +147,6 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 
 // ユーザのコメントに対する反応系
 client.on('message', message =>{
-  // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if(!message.content.match(/@|＠|http|zemi/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) sayQueue.push(message);
   // ゲームチャンネルの処理
   game(message);
   // 匿名チャンネルの処理
@@ -172,8 +177,6 @@ client.on('message', message =>{
   join(message);
   // ボイスチャンネルから切断する @leave
   leave(message);
-  // youtubeの音楽を流す @bgm
-  bgm(message);
   // 文章の文字数をカウントする @len
   len(message);
   // サイコロを振る @dice
@@ -184,8 +187,12 @@ client.on('message', message =>{
   sel(message);
   // 文字列を装飾する @big
   big(message);
+  // 週間天気予報を出力する @weather
+  weather(message);
   // デバッグ用 @db
   debug(message);
+  // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
+  if(!message.content.match(/@|＠|http|zemi/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) sayQueue.push(message);
 });
 
 // トークンが設定されていない場合　.envにてDISCORD_BOT_TOKENを設定しておく必要あり
@@ -235,8 +242,7 @@ function react(message){
       return;
     }
     if(message.content.match(/すみません|ごめん|すまん|申し訳/)){
-      let text = " そういうときもあるにゃ″ぁ";
-      sendMsg(message.channel.id,text);
+      sendMsg(message.channel.id," "+apo[Math.round(Math.random()*(apo.length-1))]);
       message.react(REACTION);
       return;
     }
@@ -278,6 +284,7 @@ function zemi(message){
     }
     if(message.content.match(/zemi/)) message.delete();
     save();
+    return;
   }
 }
 // 司会者を教えてくれる
@@ -285,6 +292,7 @@ function sikai(message){
   if (message.content.match(/sikai|shikai/)){
     sendMsg(message.channel.id,"司会者："+returnName(name[(zemiName+2)%name.length]));
     message.delete();
+    return;
   }
 }
 // ゼミ順を前に移動する
@@ -294,6 +302,7 @@ function back(message){
     save();
     sendReply(message,"発表者順を１つ前に移動しました。\n次の発表者は"+combiName(name[zemiName],addName)+"さんです。");
     message.delete();
+    return;
   }
 }
 // ゼミ順を後ろに移動する
@@ -303,6 +312,7 @@ function forward(message){
     save();
     sendReply(message,"発表者順を１つ後に移動しました。\n次の発表者は"+combiName(name[zemiName],addName)+"さんです。");    
     message.delete();
+    return;
   }
 }
 // ゼミ順を初期化する
@@ -312,6 +322,7 @@ function clear(message){
     clearAddName();
     save();
     sendReply(message,"ゼミ順を初期化しました。");
+    return;
   }
 }
 // ゼミ順を確認する
@@ -320,6 +331,7 @@ function next(message){
     let text = returnOrder();
     sendMsg(message.channel.id, text);
     message.delete();
+    return;
   }
 }
 // 積み残しの人を追加する
@@ -343,6 +355,7 @@ function add(message){
     save();
     sendMsg(message.channel.id, text);
     message.delete();
+    return;
   }
 }
 // 積み残しリストを削除する
@@ -353,6 +366,7 @@ function take(message){
     save();
     sendMsg(message.channel.id, text);
     message.delete();
+    return;
   }
 }
 // メッセージを送った人のいるボイスチャンネルに接続する
@@ -363,6 +377,7 @@ function join(message){
     else message.member.voice.channel.join();
     console.log(ch+"に接続");
     message.delete();
+    return;
   }
 }
 // ボイスチャンネルから切断する
@@ -372,23 +387,7 @@ function leave(message){
     else client.voice.connections.get(GUILD_ID).disconnect();
     console.log("ボイスチャンネルから退出");
     message.delete();
-  }
-}
-
-// ボイスチャンネルにyoutubeの音声を流す
-function bgm(message){
-  if(message.content.match(/@bgm/)){
-    var str = message.content.split(" ");
-    if(str[1]!=null && client.voice.connections.get(GUILD_ID)!=null){
-      client.voice.connections.get(GUILD_ID).play(ytdl(str[1], { filter: 'audioonly' }));
-      console.log(str[1]+"を再生");
-    }else if(client.voice.connections.get(GUILD_ID)!=null){
-      //sendMsg(message.channel.id,"@ミ″ーのおすすめの曲を流すにゃぁ″！「bgm youtubeのURL」で好きなyoutubeの音声が流せるにゃ！");
-      client.voice.connections.get(GUILD_ID).play(ytdl("https://www.youtube.com/watch?v=fpcAvRw0Q-Y", { filter: 'audioonly' }));
-    }else{
-      sendMsg(message.channel.id,"ミ″ーがボイスチャンネルに入ってないと音が流せないにゃぁ″...");
-    }
-    message.delete();
+    return;
   }
 }
   // 文字数を計測する
@@ -406,6 +405,7 @@ function len(message){
     let text = "文字数(全角スペース込み)："+(sum-line)+"文字\n文字数(全角スペース抜き)："+(sum-line-space-str.length+2)+"文字\n行数："+(line+1)+"行";
     sendMsg(message.channel.id,text);
     message.delete();
+    return;
   }
 }
   // サイコロを振る
@@ -432,6 +432,7 @@ function dice(message){
     }
     sendMsg(message.channel.id,text);
     message.delete();
+    return;
   }
 }
   // タイマー機能
@@ -445,6 +446,7 @@ function time(message){
       },Number(str[1])*1000*60);
     }else sendMsg(message.channel.id, "時間を測るには@time n(1~99の間)と入力してほしいにゃ″ん！");
     message.delete();
+    return;
   }
 }
   // ランダムセレクト
@@ -460,6 +462,7 @@ function sel(message){
     }
     sendMsg(message.channel.id, "選ばれたのは"+returnName(list)+"でした。");
     message.delete();
+    return;
   }
 }
   // 文字を装飾して返す
@@ -470,6 +473,18 @@ function big(message){
     var text = makeSurText(str[1],symbol[Math.floor(Math.random()*symbol.length)]);
     message.delete();
     sendMsg(message.channel.id,text);
+    return;
+  }
+}
+// 天気予報を返す
+function weather(message){
+  if(message.content.match(/wt/)){
+    let text = "";
+    weatherForecast().then(res=>{// 天気予報の追加
+      text += res[1];
+      sendMsg(message.channel.id,text);
+    });
+    message.delete();
   }
 }
 // デバッグ用
@@ -700,8 +715,10 @@ function weatherForecast(){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
         text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
       }
+      let time = getTime();
+      let tw = time[3];
       for(var i=0;i<7;i++){
-        text2+=weekIcon[i]+week[i]+"曜 ： "+returnWeatherIcon(res.body.daily[i].weather[0].icon)+"("+makeEmpty(res.body.daily[i].weather[0].description+")",6,1);
+        text2+=weekIcon[(tw+i)%7]+week[(tw+i)%7]+"曜 ： "+returnWeatherIcon(res.body.daily[i].weather[0].icon)+"("+makeEmpty(res.body.daily[i].weather[0].description+")",6,1);
         text2+=":arrow_up: "+Math.round(res.body.daily[i].temp.max)+"℃　:arrow_down: "+Math.round(res.body.daily[i].temp.min)+"℃\n";
       }
       var text = [text1,text2];
