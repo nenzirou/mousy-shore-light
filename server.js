@@ -26,6 +26,7 @@ const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
 const GUILD_ID = "694442026762240090";// サーバーのID
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
 var sayQueue = [];
+var sayFlag = false;// BOTが発言中かどうかを判定する
 // botを呼んだ時の反応
 const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！","人気者は困っちゃうにゃぁ″～！","ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！","何か用かにゃぁ″？","お″ぉ～ん！ニャンちゅうでぇ～す″！！",
           "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ","は？","いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！","な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！","んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
@@ -129,9 +130,6 @@ cron.schedule('0 10 * * 1,2,4', () => {
 cron.schedule('0 * * * *', () => {
   changeState();
 });
-cron.schedule('0,10,20,30,40,50 * * * * *',()=>{
-  say();
-});
 
 // ボイスチャンネルが更新されたときの処理
 client.on('voiceStateUpdate', (oldMember, newMember) => {
@@ -192,7 +190,10 @@ client.on('message', message =>{
   // デバッグ用 @db
   debug(message);
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if(!message.content.match(/@|＠|http|zemi/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) sayQueue.push(message);
+  if(!message.content.match(/@|＠|http/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) {
+    sayQueue.push(message);
+    say();
+  }
 });
 
 // トークンが設定されていない場合　.envにてDISCORD_BOT_TOKENを設定しておく必要あり
@@ -230,7 +231,7 @@ function notice(channel){
 // メッセージに対する反応を行う
 function react(message){
   if(message.channel.id!=NOTICE_CHANNEL && message.channel.id!=TEACHER_CHANNEL){
-    const REACTION= "762647337461874709";
+    const REACTION= "762647337461874709";// ニャンちゅうスタンプID
     if(message.content.match(/にゃん|ニャン|ちゅう|チュウ/)){
       sendMsg(message.channel.id," "+res[Math.round(Math.random()*(res.length-1))]);   
       message.react(REACTION);
@@ -590,8 +591,8 @@ function clearAddName(){
   addName = [""];
 }
 // botにボイスチャンネルで発言させる
-var say = function(){
-  if(sayQueue.length){// キューにメッセージがある場合のみ
+function say(){
+  if(sayQueue.length&&!sayFlag){// キューにメッセージがあり、BOTが発言中でない場合
     var msg = sayQueue.shift();// メッセージをリストから取り出す
     var speaker = voiceTable[msg.member.id%voiceTable.length];// 読み上げる声をIDから決定する
     var sayText = msg.member.displayName.substr(0,2)+"、"+msg.content;// 読み上げる内容を決定する
@@ -602,10 +603,15 @@ var say = function(){
 function speak(text,speaker){
   text = text.replace("稲守","いなもり");
   text = text.replace("虫鹿","むしか");
+  sayFlag = true;
   voicetext.fetchBuffer(text, { speaker:speaker,format: 'ogg' })
   .then((buffer) => {
     writeFileSync('voice.ogg', buffer);
-    client.voice.connections.get(GUILD_ID).play('voice.ogg');
+    var dispatcher = client.voice.connections.get(GUILD_ID).play('voice.ogg');
+    dispatcher.once('finish', () => {
+      sayFlag = false;
+      say();
+    })
   });
 }
 // ファイルに書き込む
