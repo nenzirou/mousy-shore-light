@@ -27,7 +27,7 @@ const GUILD_ID = "694442026762240090";// サーバーのID
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
 var sayQueue = [];// 発言を記憶しておくキュー
 var sayFlag = false;// BOTが発言中かどうかを判定する
-const NGword = ["@","＠","zemi","next","for","back","add","take","join","leave","teach","clear","len","sel"];// ここに設定した文字列が含まれる文章は読み上げない
+const NGword = ["@","＠","zemi","next","for","back","add","take","join","leave","teach","clear","set","len","sel"];// ここに設定した文字列が含まれる文章は読み上げない
 var teach = [];// 読み上げに教育したリスト
 // 日付の処理用
 const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];// 干支
@@ -46,7 +46,7 @@ const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″
           "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ","は？","いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！","な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！","んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
           "み゛ぃとともだちになってくれるのかにゃあん！？","お゛に゛ぃさぁ゛ん！？","み゛ぃはま゛ぁだいぎでる゛に゛ゃあ゛あ゛あ゛あ゛ん゛！","ｶﾞｶﾞｶﾞ……ｼﾃ、ﾋﾟｰｶﾞｶﾞ…ｺｺｶﾗ…ﾀﾞｼ…ｶﾞｶﾞｶﾞｶﾞｶﾞｶﾞ","今日も素敵な一日だにゃ″ん！","お″ぉん″！！お″お″お″お″お″お″お″ぉ″ん！！！",
           "次のゼミが待ち遠しいにゃぁ″！","お″ねぇ″さ″ん″がいつのまにか40代になってたにゃぁ″...","やっぱりたまごかけご飯はおいしいにゃぁん！！","真の卵賭けご飯を見せてやるにゃ″ん！","お″ね″え″さんの生態を学会に発表したにゃ″ん！！","ぃや″っぱりぃ″！？"
-          ,"FXで有り金全部溶かしたにゃ″ん″！！！"];
+          ,"FXで有り金全部溶かしたにゃ″ん″！！！","NHKの人ぉん、訴えないでくださぁ″い！"];
 // botのプレイしているゲーム
 const state = ["お″ねぇ″さ″ん","PLAYING","あ″い″ちゅあ″ん","PLAYING","あなた","WATCHING","滅びた世界","LISTENING","㊙ビデオ","WATCHING","コンピューターおばあちゃん","LISTENING","BlockRoom","WATCHING","3Dプリンタ","PLAYING",
                "カタン","PLAYING","湯沸し器","WATCHING","木島先生","WATCHING","卵かけご飯","WATCHING","深淵","WATCHING","君が代","LISTENING","毛髪","LISTENING","ニャンちゅう","PLAYING","天井","WATCHING","挫けた心","LISTENING",
@@ -129,7 +129,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
   }
 });
 
-// ユーザのコメントに対する反応系
+// ユーザがメッセージを投稿するとここが呼ばれる
 client.on('message', message =>{
   // 匿名チャンネルの処理
   anony(message);
@@ -157,8 +157,10 @@ client.on('message', message =>{
   leave(message);
   // 読み上げに教育する @teach
   teachVoice(message);
-  // 教育を削除する
+  // 教育を削除する @clear
   clearVoice(message);
+  // カスタムお知らせを追加する @set
+  setNoticeList(message);
   // 文章の文字数をカウントする @len
   len(message);
   // メンバーをランダムで選択する @sel
@@ -195,18 +197,27 @@ function notice(channel){
     if(zemiId==zemiWeek.length) zemiId = 0;
   }
   let text = "おはようございます！\n"+today[1]+"月"+today[2]+"日"+weekIcon[today[3]]+week[today[3]]+"曜の朝がやってきました。\n";
-  if(zemiWeek.indexOf(today[3])!=-1) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
+  if(zemiWeek.indexOf(today[3])!=-1&&channel==NOTICE_CHANNEL) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
   else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からの予定です。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
   if(today[3] == 2 || today[3] == 5) text += ":bell:燃えるゴミの日";// 火曜日と金曜日
   if(today[3] == 3 || today[3] == 5) text += ":bell:工学実験TA(3限)";// 水曜日と金曜日
   if(today[3] == 4 && today[2]<=6)   text += makeSurText("明日は段ボール回収の日","＃");// 第一木曜日
   if(today[3] == 5 && today[2]<=7)   text += "\n"+makeSurText("今日は段ボール回収の日","＊");// 第一金曜日
   if(today[3] == 6) text+=today[0]+"年(令和"+today[6]+"年"+zodiac[(today[0]-2020)%12]+"年)は残り"+remainingDays(today[1],today[2],1,1)+"日です。";// 毎週土曜日に今年の残りの日数を通知
+  if(noticeList.length>0){
+    text+="\n**☆みんなのお知らせ☆**\n";
+    for(var i=0;i<noticeList.length;i+=2){
+      text+=noticeList[i]+"\n";
+      noticeList[i+1]--;
+    }
+  }
+  judgeNoticeList();// 期限が切れたお知らせを削除する
   weatherForecast().then(res=>{// 天気予報の追加
     text += res[0];
     text += res[1];
     sendMsg(channel,text);
   })
+  save();
 }
 // メッセージに対する反応を行う
 function react(message){
@@ -387,6 +398,28 @@ function clearVoice(message){
     return;
   }
 }
+// カスタムお知らせを追加する　set
+function setNoticeList(message){
+  if (message.content.match(/set/)) {
+    if(message.content.match(/,/)){
+      sendMsg(message.channel.id, "「,」の文字は使えません。");
+      return;
+    }
+    var str = message.content.split(" ");
+    if(str.length==4){
+      let time = getTime();
+      let remain = remainingDays(time[1],time[2],str[2],str[3]);
+      noticeList.push(message.member.displayName.substr(0,2)+"："+str[1]);
+      noticeList.push(remain);
+      sendMsg(message.channel.id, "「"+message.member.displayName.substr(0,2)+"："+str[1]+"」を毎朝のお知らせに追加しました。残り"+remain+"日間表示されます。");
+      save();
+    }else{
+      sendMsg(message.channel.id, "「set お知らせに追加した文章 月 日」のように入力してください。");
+    }
+    message.delete();
+    return;
+  }
+}
   // 文字数を計測する len
 function len(message){
   if(message.content.match(/len/)){
@@ -424,12 +457,7 @@ function sel(message){
 // デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
-    let text="";
-    weatherForecast().then(res=>{// 天気予報の追加
-      text += res[0];
-      text += res[1];
-      sendMsg(message.channel.id,text);
-    })
+    notice(BOT_CHANNEL);
     message.delete();
   }
 }
@@ -453,6 +481,14 @@ function disconnect(){
   client.voice.connections.get(GUILD_ID).disconnect();
   sayFlag = false;
   sayQueue = [];
+}
+// 提示お知らせリストを条件を見て削除する
+function judgeNoticeList(){
+  var loop = noticeList.length;
+  for(var i=0;i<loop;i+=2){
+    if(noticeList[i+1]==0) noticeList.splice(i,2);
+  }
+  console.log(noticeList);
 }
 // 通常の発表者と積み残しの発表者名を結合して返す
 function combiName(zemi,add){
@@ -563,13 +599,12 @@ function speak(text,speaker){
 // 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト
 function save(){
   let text = zemiName+","+anonyId+",";
-  if(addName.length==1){
-    text+="none";
-  }else{
-    text+=addName.join(",");
-  }
-  text+="\n";
-  text+=teach.join(",");
+  if(addName.length==1) text+="none\n";
+  else text+=addName.join(",")+"\n";
+  if(teach.length==0) text+="none\n";
+  else text+=teach.join(",")+"\n";
+  if(noticeList.length==0) text+="none\n";
+  else text+=noticeList.join(",")+"\n";
   fs.writeFile("tex.txt", text, (err) => {
     if (err) throw err;
   });
@@ -582,6 +617,7 @@ function load(){
     let d = data.split("\n");
     let str = d[0].split(",");
     let td = d[1].split(",");
+    let nd = d[2].split(",");
     zemiName = Number(str[0]);
     anonyId = str[1];
     if(str[2]!=="none"){
@@ -589,7 +625,8 @@ function load(){
         addName.push(str[i+2]);
       }
     }
-    teach = td;
+    if(td[0]!=="none")teach = td;
+    if(nd[0]!=="none")noticeList = nd;
   });
 }
 // ステータスをランダムに変更する
