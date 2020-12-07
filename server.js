@@ -7,7 +7,6 @@ const {writeFileSync} =require('fs');// ファイル関係
 const {VoiceText} = require("voice-text");// 音声を読み上げてくれるやつ
 const voicetext = new VoiceText('d03x68wro08w7mz7');// 音声を読み上げてくれるやつ
 const cron = require('node-cron');// 定期的にプログラムを実行してくれるやつ
-
 // 名前とその対応するディスコードIDを記述する
 const name = [["伊藤","三木"],["浅野","白木"],["松野","虫鹿"],["尾山","稲守"],["南部","高岡"],["犬飼","野ツ俣"]];
 const id = [["715796433487396864","625491071475908651"],["243312886049406979","695626581187756102"],["694899614201020448","336031337452666880"],["699500872442314754","694443025287610408"],["708191971424075797","337439445269741568"],["331787151341780994","694560220730359890"]];
@@ -16,6 +15,7 @@ var memberList = [];
 for(var i=0;i<name.length;i++){
   Array.prototype.push.apply(memberList, name[i]);
 }
+var noticeList = [];// ユーザのお知らせを格納するリスト
 // チャンネルID記述
 const TEACHER_CHANNEL = "732522915832266834";// 木島先生の部屋ID
 const NOTICE_CHANNEL = "716879387072528384";// #お知らせID
@@ -23,10 +23,24 @@ const BOT_CHANNEL = "758946751830163477";// #Bot開発ID
 const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
 const GUILD_ID = "694442026762240090";// サーバーのID
+// 読み上げ関係
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
-var sayQueue = [];
+var sayQueue = [];// 発言を記憶しておくキュー
 var sayFlag = false;// BOTが発言中かどうかを判定する
+const NGword = ["@","＠","zemi","next","for","back","add","take","join","leave","teach","clear","len","sel"];// ここに設定した文字列が含まれる文章は読み上げない
 var teach = [];// 読み上げに教育したリスト
+// 日付の処理用
+const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];// 干支
+const monthDay = [31,28,31,30,31,30,31,31,30,31,30,31];// 各月の日数
+const week = ["日","月","火","水","木","金","土"];
+const weekIcon = [":orange_circle:",":white_circle:",":red_circle:",":blue_circle:",":green_circle:",":yellow_circle:",":brown_circle:"];// 曜日のアイコン名
+const zemiWeek = [1,2,4];// 曜日を数値で表す0~6 日~土
+const zemiTime = [16,"30",14,"45",14,"45"];// zemiWeekに対応するゼミの開始時間
+let zemiName = 0;// 発表者の配列番号
+let addName = [""];
+const fs = require("fs");
+let anonyId = 0;
+load();// データをロードする
 // botを呼んだ時の反応
 const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！","人気者は困っちゃうにゃぁ″～！","ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！","何か用かにゃぁ″？","お″ぉ～ん！ニャンちゅうでぇ～す″！！",
           "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ","は？","いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！","な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！","んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
@@ -53,18 +67,7 @@ const thanks = ["サンキュでぇ～す！","ん優しい世界ぃ″！","あ
 // 誰かがごめんなさいなど発言したときの返し
 const apo = ["そういうときもあるにゃぁ","つぎからがんばればいいにゃぁ","しかたないにゃぁ","ミーも一緒にあやまるにゃぁ","はい、ごめんなさ″～い","ここはミーに任せてはやく逃げるにゃ”！","正直に謝ればみんな許してくれるにゃぁ",
              "きりかえていくにゃぁ","またつぎがあるにゃぁ","ここはミーに免じてゆるしてほしいにゃぁ”！","ボコルならミーをボコるにゃ！！","誰にでもしっぱいはあるにゃぁ"];
-// 日付の処理用
-const zodiac = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];// 干支
-const monthDay = [31,28,31,30,31,30,31,31,30,31,30,31];// 各月の日数
-const week = ["日","月","火","水","木","金","土"];
-const weekIcon = [":orange_circle:",":white_circle:",":red_circle:",":blue_circle:",":green_circle:",":yellow_circle:",":brown_circle:"];// 曜日のアイコン名
-const zemiWeek = [1,2,4];// 曜日を数値で表す0~6 日~土
-const zemiTime = [16,"30",14,"45",14,"45"];// zemiWeekに対応するゼミの開始時間
-let zemiName = 0;// 発表者の配列番号
-let addName = [""];
-const fs = require("fs");
-let anonyId = 0;
-load();// データをロードする
+
 
 // サーバーを作成する
 http.createServer(function(req, res){
@@ -102,7 +105,7 @@ client.on('ready', message =>{
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
-cron.schedule('30 0 22 * * *', () => {
+cron.schedule('30 5 22 * * *', () => {
   notice(NOTICE_CHANNEL);
 });
 // ゼミ終了後にゼミ順を定時連絡する
@@ -122,7 +125,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
     console.log("接続　：　"+newMember.channel.name);
   }else if(conn && conn.channel && conn.channel.members.array().length < 2) {// ボイスチャンネルにbotしかいなくなった場合に切断する
     console.log("切断　：　"+conn.channel.name);
-    conn.disconnect();
+    disconnect();
   }
 });
 
@@ -162,8 +165,12 @@ client.on('message', message =>{
   sel(message);
   // デバッグ用 @db
   debug(message);
+  // NGワードは読み上げない
+  for(var i=0;i<NGword.length;i++){
+    if(message.content.match(NGword[i])) return;
+  }
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if(!message.content.match(/@|＠|http/)&&message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) {
+  if(message.channel.id != GAME_CHANNEL&&message.channel.id != ANONY_CHANNEL&&client.voice.connections.get(GUILD_ID)!==undefined) {
     sayQueue.push(message);
     say();
   }
@@ -340,7 +347,7 @@ function join(message){
 function leave(message){
   if (message.content.match(/leave/)) {
     if(client.voice.connections.get(GUILD_ID)==null)sendMsg(message.channel.id, "botがボイスチャンネルに入室していません。");
-    else client.voice.connections.get(GUILD_ID).disconnect();
+    else disconnect();
     console.log("ボイスチャンネルから退出");
     message.delete();
     return;
@@ -417,7 +424,12 @@ function sel(message){
 // デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
-    notice(BOT_CHANNEL);
+    let text="";
+    weatherForecast().then(res=>{// 天気予報の追加
+      text += res[0];
+      text += res[1];
+      sendMsg(message.channel.id,text);
+    })
     message.delete();
   }
 }
@@ -435,6 +447,12 @@ function sendMsg(channelId, text, option={}){
   client.channels.cache.get(channelId).send(text, option)
     .then(console.log("メッセージ送信{\n"+text.substr(0,50)+"\n}"))
     .catch(console.error);
+}
+// BOTをボイスチャンネルから退出させる
+function disconnect(){
+  client.voice.connections.get(GUILD_ID).disconnect();
+  sayFlag = false;
+  sayQueue = [];
 }
 // 通常の発表者と積み残しの発表者名を結合して返す
 function combiName(zemi,add){
@@ -629,14 +647,14 @@ function remainingDays(month1,day1,month2,day2){
 function weatherForecast(){
   var text1 = "\n**☆本日の岐阜市の天気予報☆**\n";
   var text2 = "\n**☆岐阜市の週間天気予報☆**\n";
-  var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜大学周辺の天気をもらってくる
+  var req = unirest("GET", "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd");// 岐阜市の天気をもらってくる
   return new Promise((resolve, reject) => { 
     req.end(function (res) {
       console.log(res.body.current);
       console.log(res.body.daily[0]);
       //console.log(res.body);
       var hourName = [":sunflower:現在 ： ",":sun_with_face:正午 ： ",":crescent_moon:夕方 ： "];
-      var hour = [0,6,11];
+      var hour = [0,6,12];
       for(var i=0;i<3;i++){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
         text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
