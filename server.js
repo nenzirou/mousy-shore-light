@@ -17,12 +17,12 @@ for(var i=0;i<name.length;i++){
 }
 var noticeList = [];// ユーザのお知らせを格納するリスト
 // チャンネルID記述
-const TEACHER_CHANNEL = "732522915832266834";// 木島先生の部屋ID
+const TEACHER_CHANNEL = "732522915832266834";// #先生の部屋ID
 const NOTICE_CHANNEL = "716879387072528384";// #お知らせID
 const BOT_CHANNEL = "758946751830163477";// #Bot開発ID
 const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
-const GUILD_ID = "694442026762240090";// サーバーのID
+const GUILD_ID = "694442026762240090";// 木島研サーバーのID
 // 読み上げ関係
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
 var sayQueue = [];// 発言を記憶しておくキュー
@@ -165,6 +165,8 @@ client.on('message', message =>{
   len(message);
   // メンバーをランダムで選択する @sel
   sel(message);
+  // 迷路生成
+  maze(message);
   // デバッグ用 @db
   debug(message);
   // NGワードは読み上げない
@@ -198,7 +200,7 @@ function notice(channel){
   }
   let text = "おはようございます！\n"+today[1]+"月"+today[2]+"日"+weekIcon[today[3]]+week[today[3]]+"曜の朝がやってきました。\n";
   if(zemiWeek.indexOf(today[3])!=-1&&channel==NOTICE_CHANNEL) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
-  else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からの予定です。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
+  else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からです。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
   if(today[3] == 2 || today[3] == 5) text += ":bell:燃えるゴミの日";// 火曜日と金曜日
   if(today[3] == 3 || today[3] == 5) text += ":bell:工学実験TA(3限)";// 水曜日と金曜日
   if(today[3] == 4 && today[2]<=6)   text += makeSurText("明日は段ボール回収の日","＃");// 第一木曜日
@@ -743,3 +745,122 @@ function anony(message){
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                 Game CHANNEL                                                                                                 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class State{
+  constructor(y,x,st){
+    this.x = x;
+    this.y = y;
+    this.st = st;
+  }
+}
+// 迷路生成プログラム
+function maze(message){
+  if(message.content.match(/maze/)){
+    var str = message.content.split(" ");
+    if(str.length!=3) {
+      sendMsg(message.channel.id,"「maze 横幅 縦幅」と入力してください。");
+      return;
+    }
+    // フィールド用意
+    var H = Number(str[2]);// 奇数
+    if(H%2==0) H++;
+    var W = Number(str[1]);// 奇数
+    if(W%2==0) W++;
+    let field = new Array(H+2);
+    for(var i=0;i<H+2;i++){
+      field[i] = new Array(W+2).fill("□");
+    }
+    for(var i=0;i<H+2;i++){
+      for(var j=0;j<W+2;j++){
+        if(i==0||j==0||i==H+1||j==W+1) field[i][j] = "　";
+      }
+    }
+    const dx = [0,-1,0,1];
+    const dy = [1,0,-1,0];
+    // 迷路生成
+    var open = [];
+    var fx = Math.floor(Math.random()*(W-1)/2+1)*2;
+    var fy = Math.floor(Math.random()*(H-1)/2+1)*2;
+    open.push(new State(fy,fx,0));// 初期位置指定
+    field[fy][fx] = "　";
+    while(open.length){
+      var rand = Math.floor(Math.random()*open.length);
+      var tmp = open.splice(rand,1);
+      var st = tmp[0];
+      // 四方向に伸ばせない場合はcontinue
+      var sum = 0;
+      for(var i=0;i<4;i++){
+        if(field[st.y+dy[i]*2][st.x+dx[i]*2]==='□') sum++;
+      }
+      if(sum==0) continue;
+      else if(sum>1) open.push(st);
+      // ランダムに方向決定
+      while(true){
+        var dir = Math.floor(Math.random()*4);
+        if(field[st.y+dy[dir]*2][st.x+dx[dir]*2]==='□'){
+          field[st.y+dy[dir]][st.x+dx[dir]] = "　";
+          field[st.y+dy[dir]*2][st.x+dx[dir]*2] = "　";
+          open.push(new State(st.y+dy[dir]*2,st.x+dx[dir]*2,0));
+          break;
+        }
+      }
+    }
+    // 出力
+    let text = "めいろ(左上スタート,右下ゴール)\n";
+    for(var i=1;i<=H;i++){
+      for(var j=1;j<=W;j++){
+        text+=field[i][j];
+      }
+      if(text.length>1900){
+        sendMsg(message.channel.id,text);
+        text="";
+      }
+      text+="\n";
+    }
+    sendMsg(message.channel.id,text);// 迷路出力
+    text = "最短経路〇　探索範囲＊\n";
+    var gst=new State(2,2,null);
+    open.push(new State(2,2,null));
+    var closed = [];// 探索済み座標の格納
+    
+    // 最短経路の探索
+    while(open.length){
+      var st = open.shift();
+      // ゴールしたらループから抜ける
+      if(st.y==H-1&&st.x==W-1) {
+        gst = st;
+        break;
+      }
+      if(closed.indexOf(st.y<<16|st.x)!=-1){
+        continue;
+      }
+      if(field[st.y][st.x]==='□'){
+        console.log(st);
+        continue;
+      }
+      field[st.y][st.x]="＊";
+      for(var i=0;i<4;i++){
+        open.push(new State(st.y+dy[i],st.x+dx[i],st));
+      }
+      closed.push(st.y<<16|st.x);
+    }
+    // 帰ってきたStateから最短経路を復元する
+    while(true){
+      field[gst.y][gst.x]="〇";
+      if(gst.st===null) break;
+      gst=gst.st;
+    }
+    for(var i=1;i<=H;i++){
+      for(var j=1;j<=W;j++){
+        text+=field[i][j];
+      }
+      if(text.length>1900){
+        sendMsg(message.channel.id,text);
+        text="";
+      }
+      text+="\n";
+    }
+    sendMsg(message.channel.id,text);// 迷路出力
+    message.delete();
+  }
+}
+
