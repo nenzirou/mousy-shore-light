@@ -42,6 +42,7 @@ let zemiName = 0;// 発表者の配列番号
 let addName = [""];
 const fs = require("fs");
 let anonyId = 0;
+let ranking = [];
 load();// データをロードする
 // botを呼んだ時の反応
 const res = ["おぉ″ーん″！呼んだかにゃぁ″？","お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！","人気者は困っちゃうにゃぁ″～！","ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！","何か用かにゃぁ″？","お″ぉ～ん！ニャンちゅうでぇ～す″！！",
@@ -603,7 +604,7 @@ function speak(text,speaker){
   });
 }
 // ファイルに書き込む
-// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト
+// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト 3:ゲームランキング
 function save(){
   let text = zemiName+","+anonyId+",";
   if(addName.length==1) text+="none\n";
@@ -612,12 +613,13 @@ function save(){
   else text+=teach.join(",")+"\n";
   if(noticeList.length==0) text+="none\n";
   else text+=noticeList.join(",")+"\n";
+  text+=ranking.join(",")+"\n";
   fs.writeFile("tex.txt", text, (err) => {
     if (err) throw err;
   });
 }
 // ファイルを読み込む
-// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト
+// 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト 3:ゲームランキング
 function load(){
   fs.readFile("tex.txt", "utf-8", (err, data) => {
     if (err) throw err;
@@ -625,6 +627,7 @@ function load(){
     let str = d[0].split(",");
     let td = d[1].split(",");
     let nd = d[2].split(",");
+    let rd = d[3].split(",");
     zemiName = Number(str[0]);
     anonyId = str[1];
     if(str[2]!=="none"){
@@ -634,6 +637,7 @@ function load(){
     }
     if(td[0]!=="none")teach = td;
     if(nd[0]!=="none")noticeList = nd;
+    ranking = rd;
   });
 }
 // ステータスをランダムに変更する
@@ -864,7 +868,7 @@ function game(message){
           field[nyan.y][nyan.x] = 9;
         }
         nyan.turn++;
-        processEvent();
+        processEvent(message);
         if(field[nyan.y][nyan.x]!=9){
           for(var i=0;i<enemy.length;i++){
             enemy[i].move(H,W,field,nyan);
@@ -942,7 +946,7 @@ function moveNyan(y,x){
   return 0;
 }
 // 止まったマス目のイベント処理を行う
-function processEvent(){
+function processEvent(message){
   if(field[nyan.y][nyan.x]==0){
     flavorText="何も無いにゃ。";
   }else if(field[nyan.y][nyan.x]==1){
@@ -968,7 +972,7 @@ function processEvent(){
     nyan.clear = true;
     flavorText="迷路から脱出できたにゃ″ん！";
     nyan.score+=nyan.hp*50+(50-nyan.turn)*10;
-    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit("ミーは灰皿じゃないにゃああああん");// ランキング更新
+    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit(rank(nyan.score,message.member.displayName));// ランキング更新
   }else if(field[nyan.y][nyan.x]==9) {
     flavorText="地雷が置いてあるにゃ″ん！";
     return;
@@ -995,8 +999,43 @@ function processEvent(){
 }
 
 // スコアを入れるとランキングのテキストを出力してくれる
-function ranking(score){
-  
+function rank(score,name){
+  let alreadyExist=-1;
+  for(var i=0;i<5;i++){
+    if(ranking.indexOf(name)!=-1) alreadyExist=ranking.indexOf(name);
+  }
+  if(alreadyExist!=-1){// ランキングに名前がある場合
+    if(ranking[alreadyExist+1]<=nyan.score) ranking[alreadyExist+1] = nyan.score;// スコア更新出来たらランキングを更新
+    // ランキングのソート
+    for(var i=0;i<4;i++){
+      for(var j=0;j<4;j++){
+        if(Number(ranking[j*2+1])<=Number(ranking[(j+1)*2+1])) {
+          let tmpName = ranking[j*2];
+          ranking[j*2]=ranking[(j+1)*2];
+          ranking[(j+1)*2] = tmpName;
+          let tmpScore = ranking[j*2+1];
+          ranking[j*2+1] = ranking[(j+1)*2+1];
+          ranking[(j+1)*2+1] = tmpScore;
+        }
+      }
+    }
+  }else{// ランキングに名前が無い場合
+    for(var i=0;i<5;i++){
+      if(ranking[i*2+1]<=nyan.score){// スコアが高かったら挿入＆末尾削除
+        ranking.splice(i*2,0,nyan.score);
+        ranking.splice(i*2,0,name);
+        ranking.pop();
+        ranking.pop();
+        break;
+      }
+    }
+  }
+  save();
+  let text = "☆ランキング☆\n";
+  for(var i=0;i<5;i++){
+    text+=i+1+"位："+ranking[i*2]+"("+ranking[i*2+1]+"点)\n";
+  }
+  return text;
 }
 
 
