@@ -23,7 +23,7 @@ const BOT_CHANNEL = "758946751830163477";// #Bot開発ID
 const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
 const INST_TEXT = "786125903460958230";// ゲーム説明書のメッセージID
-const NYAN_ID = "";// BOTID
+const RANK_TEXT = "786232811207917599";// ランキングのメッセージID
 const GUILD_ID = "694442026762240090";// 木島研サーバーのID
 // 読み上げ関係
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
@@ -104,7 +104,7 @@ client.on('ready', message =>{
   console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
   client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 })
-  .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
+  .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT&&message.id!=RANK_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -464,8 +464,7 @@ function sel(message){
 // デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
-    //notice(BOT_CHANNEL);
-    
+    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit("ミーは灰皿じゃないにゃああああん");
     message.delete();
   }
 }
@@ -763,8 +762,12 @@ class Nyanchu{
   constructor(y,x){
     this.x = x;
     this.y = y;
-    this.brakePoint = 0;// 壁を壊せる回数
+    this.hp = 3;
+    this.turn = 0;// 経過ターン
+    this.breakPoint = 0;// 壁を壊せる回数
     this.landmines = 0;// 地雷の個数
+    this.score = 0;
+    this.clear = false;//クリア判定
   }
 }
 
@@ -773,8 +776,35 @@ class Enemy{
     this.x = x;
     this.y = y;
   }
+  move(H,W,field,nyan){
+    var st = dijkstra(H,W,field,nyan.x,nyan.y,this.x,this.y);
+    if(st!==null){
+      this.x = st.x;
+      this.y = st.y;
+    }
+    if(field[this.y][this.x]==9){// 地雷の処理
+      for(var i=0;i<3;i++){
+        for(var j=0;j<3;j++){
+          field[this.y-1+i][this.x-1+j] = 1;
+        }
+      }
+      nyan.score+=500;
+      flavorText = "やったー！敵を閉じ込めたにゃ″ん！";
+    }
+    if(nyan.x==this.x&&nyan.y==this.y){
+      gameOver = true;
+      flavorText = "おばけにゃああ！！怖いにゃああ！！！";
+    }
+  }
 }
 
+class Bomb{
+  constructor(y,x){
+    this.x = x;
+    this.y = y;
+  }
+}
+// 下、左、上、右
 const dx = [0,-1,0,1];
 const dy = [1,0,-1,0];
 let field;
@@ -783,7 +813,195 @@ const W = 11;
 let gameMsg=[];
 let nyan;
 let enemy;
+let bomb;
+let flavorText;
 var gameOver = true;
+const objectName = ["玉ねぎ","土星","たらい","ゴマダレ","画鋲","つらら","新幹線","イガグリ","海水","ゴミ","だるまさん","おねぇ″さ″ん","おじさん","犯罪者","ブラジル","たまごかけご飯","仮想空間","ハヤシライス","家族","福沢諭吉","３兆円","岐阜大学"];
+const objectMinusVerb = ["が降ってきた","が目に入った","を踏んだ","とぶつかった","に背後から襲われた","に殴られた","を踏み抜いた","に突き刺さった","で転んだ","に激突した","にビンタされた"];
+const objectPlusVerb = ["に癒された","を食べて元気が出た","と出会ってうれしい","と一緒に踊った","が応援してくれた","が励ましてくれた","に囲まれて幸せ","に抱きしめられた","の一発ギャグが面白かった","を手に入れてうれしい"];
+// ゲームの処理を行う
+function game(message){
+  if(message.channel.id==GAME_CHANNEL){
+    if(message.author.id!=client.user.id){
+      // 初期化
+      if(gameOver){
+        let fieldText = makeMaze(H,W);
+        // フィールド生成
+        field = new Array(H);
+        for(var i=0;i<H;i++){
+          field[i] = new Array(W).fill(1);
+        }
+        // フィールドテキストを参照、通路を判定し数値に変換する
+        for(var i=0;i<H;i++){
+          for(var j=0;j<W;j++){
+            if(fieldText[i+1][j+1]==="　") field[i][j] = 0;
+          }
+        }
+        field[H-3][W-2] = 0;
+        field[H-2][W-3] = 0;
+        situate(H,W,field,0,5,1);// 壁をいくつか通路に変換する
+        situate(H,W,field,2,12,0);// ダメージポイントを生成
+        situate(H,W,field,3,12,0);// 回復ポイントを生成
+        situate(H,W,field,4,7,0);// 壁壊しポイントを生成
+        situate(H,W,field,5,7,0);// 地雷ポイントを生成
+        situate(H,W,field,11,2,0);// ワープポイントを生成
+        field[1][1] = 6;// ゴール
+        enemy = [];
+        bomb = [];
+        nyan = new Nyanchu(H-2,W-2);
+        flavorText="レッツスタートにゃ～！";
+        for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
+        gameOver = false;
+      }else{// メインループ
+        if(message.content.indexOf("w")!=-1) moveNyan(nyan.y-1,nyan.x);
+        else if(message.content.indexOf("s")!=-1) moveNyan(nyan.y+1,nyan.x);
+        else if(message.content.indexOf("d")!=-1) moveNyan(nyan.y,nyan.x+1);
+        else if(message.content.indexOf("a")!=-1) moveNyan(nyan.y,nyan.x-1);
+        else if(message.content.indexOf("r")!=-1) gameOver = true;
+        else if(message.content.indexOf("q")!=-1&&nyan.landmines>0) {
+          bomb.push(new Bomb(nyan.y,nyan.x));
+          nyan.landmines--;
+          field[nyan.y][nyan.x] = 9;
+        }
+        nyan.turn++;
+        processEvent();
+        if(field[nyan.y][nyan.x]!=9){
+          for(var i=0;i<enemy.length;i++){
+            enemy[i].move(H,W,field,nyan);
+          }
+        }
+      }
+      display(H,W,field,message);// フィールドをGAME_CHANNELに描画
+      message.delete();
+    }else{
+      if(gameMsg.length){
+        if(gameMsg[gameMsg.length-1].content.indexOf("☆")!=-1){
+        // 前フレームのメッセージを削除する
+        for(var i=0;i<gameMsg.length;i++){
+          let msg = gameMsg.pop();
+          msg.delete();
+          }
+        }
+      }
+      gameMsg.push(message);
+    }
+  }
+}
+
+// 通路にイベントマスを置く
+function situate(H,W,field,id,num,mode){
+  while(num){
+    var sx = Math.floor(Math.random()*(W-2)+1);
+    var sy = Math.floor(Math.random()*(H-2)+1);
+    if(field[sy][sx]==mode&&!(sy==H-2&&sx==W-2)) {
+      field[sy][sx]=id;
+      num--;
+    }
+  }
+  return field;
+}
+// 迷路をテキストにして送信
+function display(H,W,field,message){
+  const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:786216879663874109>','<:obake:786217527675453460>','<:bakudan:786221416261353482>','<:death:767774739195494480>',':purple_square:'];
+  let text = "プレイヤー："+message.member.displayName+"　"+nyan.turn+"ターン目\n";
+  for(var i=1;i<H-1;i++){
+    for(var j=1;j<W-1;j++){
+      let t = fieldIdToText[field[i][j]];
+      for(var k=0;k<enemy.length;k++){// 敵の描画
+        if(i==enemy[k].y&&j==enemy[k].x) t=fieldIdToText[8];
+      }
+      if(i==nyan.y&&j==nyan.x) {
+        if(!gameOver||nyan.clear) t=fieldIdToText[7];//ニャンちゅう描画
+        else t=fieldIdToText[10];// ニャンちゅうの遺影
+      }
+      text+=t;
+    }
+    text+="\n";
+  }
+  if(gameOver&&!nyan.clear) text+=":red_square:　　GAME OVER　　:red_square:\n";
+  text+="HP："+nyan.hp+"　破壊："+nyan.breakPoint+"　地雷："+nyan.landmines+"　スコア："+nyan.score;
+  text+="\nニャンちゅう「"+flavorText+"」";
+  sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
+}
+// -1 動けない 0 動いた 1 壁を破壊した
+function moveNyan(y,x){
+  if(y<1||y>H-1||x<1||x>W-1) return -1;
+  if(field[y][x] == 1){
+    if(nyan.breakPoint>0){
+      nyan.x = x;
+      nyan.y = y;
+      nyan.breakPoint--;
+      return 1;
+    }else{
+      return -1;
+    }
+  }else{
+    nyan.x = x;
+    nyan.y = y;
+  }
+  return 0;
+}
+// 止まったマス目のイベント処理を行う
+function processEvent(){
+  if(field[nyan.y][nyan.x]==0){
+    flavorText="何も無いにゃ。";
+  }else if(field[nyan.y][nyan.x]==1){
+    flavorText="壁の中にいるにゃ。";
+  }else if(field[nyan.y][nyan.x]==2) {
+    nyan.hp--;
+    nyan.score-=10;
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectMinusVerb[Math.floor(Math.random()*objectMinusVerb.length)]+"にゃ″ん！";
+  }else if(field[nyan.y][nyan.x]==3) {
+    nyan.hp++;
+    nyan.score+=50;
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectPlusVerb[Math.floor(Math.random()*objectPlusVerb.length)]+"にゃ″ん！";
+  }else if(field[nyan.y][nyan.x]==4) {
+    nyan.breakPoint++;
+    nyan.score+=30;
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が壁を壊す力を授けてくれたにゃ″ん！";
+  }else if(field[nyan.y][nyan.x]==5) {
+    nyan.landmines++;
+    nyan.score+=30;
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が地雷をくれたにゃ″ん！";
+  }else if(field[nyan.y][nyan.x]==6){
+    gameOver = true;
+    nyan.clear = true;
+    flavorText="迷路から脱出できたにゃ″ん！";
+    nyan.score+=nyan.hp*50+(50-nyan.turn)*10;
+    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit("ミーは灰皿じゃないにゃああああん");// ランキング更新
+  }else if(field[nyan.y][nyan.x]==9) {
+    flavorText="地雷が置いてあるにゃ″ん！";
+    return;
+  }else if(field[nyan.y][nyan.x]==11){
+    flavorText="ワープしたにゃ″ん！";
+    // ワープ処理
+    warp :for(var i=0;i<H;i++){
+      for(var j=0;j<W;j++){
+        if(i==nyan.y&&j==nyan.x) continue;
+        if(field[i][j]==11) {
+          nyan.x = j;
+          nyan.y = i;
+          break warp;
+        }
+      }
+    }
+    return;
+  }
+  field[nyan.y][nyan.x]=0;
+  if(nyan.hp<=0) {
+    gameOver=true;
+    flavorText="にゃんちゅうは死んだよ";
+  }
+}
+
+// スコアを入れるとランキングのテキストを出力してくれる
+function ranking(score){
+  
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 迷路生成プログラム
 function maze(message){
   if(message.content.match(/maze/)){
@@ -823,54 +1041,6 @@ function maze(message){
     }
     sendMsg(message.channel.id,text);// 迷路出力
     message.delete();
-  }
-}
-// 
-function game(message){
-  if(message.author.id!=client.user.id){
-    // 初期化
-    if(gameOver){
-      let fieldText = makeMaze(H,W);
-      // フィールド生成
-      field = new Array(H);
-      for(var i=0;i<H;i++){
-        field[i] = new Array(W).fill(1);
-      }
-      // フィールドテキストを参照、通路を判定し数値に変換する
-      for(var i=0;i<H;i++){
-        for(var j=0;j<W;j++){
-          if(fieldText[i+1][j+1]==="　") field[i][j] = 0;
-        }
-      }
-      situate(H,W,field,0,5,1);// 壁をいくつか通路に変換する
-      situate(H,W,field,2,10,0);// ダメージポイントを生成
-      situate(H,W,field,3,10,0);// 回復ポイントを生成
-      situate(H,W,field,4,10,0);// 壁壊しポイントを生成
-      situate(H,W,field,5,10,0);// 地雷ポイントを生成
-      field[1][1] = 6;// ゴール
-      enemy = [];
-      nyan = new Nyanchu(H-2,W-2);
-      for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
-      gameOver = false;
-    }else{
-      if(message.content.indexOf("w")!=-1) nyan.y--;
-      else if(message.content.indexOf("s")!=-1) nyan.y++;
-      else if(message.content.indexOf("d")!=-1) nyan.x++;
-      else if(message.content.indexOf("a")!=-1) nyan.x--;
-    }
-    display(H,W,field,message);// フィールドをGAME_CHANNELに描画
-    message.delete();
-  }else{
-    if(gameMsg.length){
-      if(gameMsg[gameMsg.length-1].content.indexOf("☆")!=-1){
-      // 前フレームのメッセージを削除する
-      for(var i=0;i<gameMsg.length;i++){
-        let msg = gameMsg.pop();
-        msg.delete();
-        }
-      }
-    }
-    gameMsg.push(message);
   }
 }
 
@@ -935,54 +1105,13 @@ function dijkstra(H,W,field,sx,sy,gx,gy){
     if(closed.indexOf(st.y<<16|st.x)!=-1){
       continue;
     }
-    if(field[st.y][st.x]==='□'){
+    if(field[st.y][st.x]===1){
       continue;
     }
-    field[st.y][st.x]="＊";
     for(var i=0;i<4;i++){
       open.push(new State(st.y+dy[i],st.x+dx[i],st));
     }
     closed.push(st.y<<16|st.x);
   }
-  // 帰ってきたStateから最短経路を復元する
-  while(true){
-    field[gst.y][gst.x]="〇";
-    if(gst.st===null) break;
-    gst=gst.st;
-  }
-  return field;
-}
-// 通路に置く
-function situate(H,W,field,id,num,mode){
-  while(num){
-    var sx = Math.floor(Math.random()*(W-2)+1);
-    var sy = Math.floor(Math.random()*(H-2)+1);
-    if(field[sy][sx]==mode&&!(sy==H-1&&sx==W-1)) {
-      field[sy][sx]=id;
-      num--;
-    }
-  }
-  return field;
-}
-// 迷路をテキストにして送信
-function display(H,W,field,message){
-  // 出力
-  const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:767331341212581888>','<:enemy:768089974095872040>'];
-  let text = "ゲーム\n";
-  for(var i=1;i<H-1;i++){
-    for(var j=1;j<W-1;j++){
-      let t = fieldIdToText[field[i][j]];
-      if(i==nyan.y&&j==nyan.x) t=fieldIdToText[7];//ニャンちゅう描画
-      for(var k=0;k<enemy.length;k++){// 敵の描画
-        if(i==enemy[k].y&&j==enemy[k].x) t=fieldIdToText[8];
-      }
-      text+=t;
-    }
-    if(text.length>1600){
-      sendMsg(GAME_CHANNEL,text);
-      text="";
-    }
-    text+="\n";
-  }
-  sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
+  return gst.st;
 }
