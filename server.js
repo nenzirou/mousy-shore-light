@@ -752,6 +752,8 @@ class State{
     this.st = st;
   }
 }
+const dx = [0,-1,0,1];
+const dy = [1,0,-1,0];
 // 迷路生成プログラム
 function maze(message){
   if(message.content.match(/maze/)){
@@ -765,45 +767,7 @@ function maze(message){
     if(H%2==0) H++;
     var W = Number(str[1]);// 奇数
     if(W%2==0) W++;
-    let field = new Array(H+2);
-    for(var i=0;i<H+2;i++){
-      field[i] = new Array(W+2).fill("□");
-    }
-    for(var i=0;i<H+2;i++){
-      for(var j=0;j<W+2;j++){
-        if(i==0||j==0||i==H+1||j==W+1) field[i][j] = "　";
-      }
-    }
-    const dx = [0,-1,0,1];
-    const dy = [1,0,-1,0];
-    // 迷路生成
-    var open = [];
-    var fx = Math.floor(Math.random()*(W-1)/2+1)*2;
-    var fy = Math.floor(Math.random()*(H-1)/2+1)*2;
-    open.push(new State(fy,fx,0));// 初期位置指定
-    field[fy][fx] = "　";
-    while(open.length){
-      var rand = Math.floor(Math.random()*open.length);
-      var tmp = open.splice(rand,1);
-      var st = tmp[0];
-      // 四方向に伸ばせない場合はcontinue
-      var sum = 0;
-      for(var i=0;i<4;i++){
-        if(field[st.y+dy[i]*2][st.x+dx[i]*2]==='□') sum++;
-      }
-      if(sum==0) continue;
-      else if(sum>1) open.push(st);
-      // ランダムに方向決定
-      while(true){
-        var dir = Math.floor(Math.random()*4);
-        if(field[st.y+dy[dir]*2][st.x+dx[dir]*2]==='□'){
-          field[st.y+dy[dir]][st.x+dx[dir]] = "　";
-          field[st.y+dy[dir]*2][st.x+dx[dir]*2] = "　";
-          open.push(new State(st.y+dy[dir]*2,st.x+dx[dir]*2,0));
-          break;
-        }
-      }
-    }
+    let field = makeMaze(H,W);
     // 出力
     let text = "めいろ(左上スタート,右下ゴール)\n";
     for(var i=1;i<=H;i++){
@@ -818,37 +782,7 @@ function maze(message){
     }
     sendMsg(message.channel.id,text);// 迷路出力
     text = "最短経路〇　探索範囲＊\n";
-    var gst=new State(2,2,null);
-    open.push(new State(2,2,null));
-    var closed = [];// 探索済み座標の格納
-    
-    // 最短経路の探索
-    while(open.length){
-      var st = open.shift();
-      // ゴールしたらループから抜ける
-      if(st.y==H-1&&st.x==W-1) {
-        gst = st;
-        break;
-      }
-      if(closed.indexOf(st.y<<16|st.x)!=-1){
-        continue;
-      }
-      if(field[st.y][st.x]==='□'){
-        console.log(st);
-        continue;
-      }
-      field[st.y][st.x]="＊";
-      for(var i=0;i<4;i++){
-        open.push(new State(st.y+dy[i],st.x+dx[i],st));
-      }
-      closed.push(st.y<<16|st.x);
-    }
-    // 帰ってきたStateから最短経路を復元する
-    while(true){
-      field[gst.y][gst.x]="〇";
-      if(gst.st===null) break;
-      gst=gst.st;
-    }
+    field = dijkstra(H,W,field,2,2,H-1,W-1);
     for(var i=1;i<=H;i++){
       for(var j=1;j<=W;j++){
         text+=field[i][j];
@@ -864,3 +798,81 @@ function maze(message){
   }
 }
 
+// 穴掘り法でW×Hの迷路を生成する
+function makeMaze(H,W){
+  let field = new Array(H+2);
+  for(var i=0;i<H+2;i++){
+    field[i] = new Array(W+2).fill("□");
+  }
+  for(var i=0;i<H+2;i++){
+    for(var j=0;j<W+2;j++){
+      if(i==0||j==0||i==H+1||j==W+1) field[i][j] = "　";
+    }
+  }
+
+  // 迷路生成
+  var open = [];
+  var fx = Math.floor(Math.random()*(W-1)/2+1)*2;
+  var fy = Math.floor(Math.random()*(H-1)/2+1)*2;
+  open.push(new State(fy,fx,0));// 初期位置指定
+  field[fy][fx] = "　";
+  while(open.length){
+    var rand = Math.floor(Math.random()*open.length);
+    var tmp = open.splice(rand,1);
+    var st = tmp[0];
+    // 四方向に伸ばせない場合はcontinue
+    var sum = 0;
+    for(var i=0;i<4;i++){
+      if(field[st.y+dy[i]*2][st.x+dx[i]*2]==='□') sum++;
+    }
+    if(sum==0) continue;
+    else if(sum>1) open.push(st);
+    // ランダムに方向決定
+    while(true){
+      var dir = Math.floor(Math.random()*4);
+      if(field[st.y+dy[dir]*2][st.x+dx[dir]*2]==='□'){
+        field[st.y+dy[dir]][st.x+dx[dir]] = "　";
+        field[st.y+dy[dir]*2][st.x+dx[dir]*2] = "　";
+        open.push(new State(st.y+dy[dir]*2,st.x+dx[dir]*2,0));
+        break;
+      }
+    }
+  }
+  return field;
+}
+
+// 二重配列をテキストにして出力する
+function dijkstra(H,W,field,sx,sy,gx,gy){
+  var gst = new State(gy,gx,null);
+  var open = [];
+  open.push(new State(sy,sx,null));
+  var closed = [];// 探索済み座標の格納
+  // 最短経路の探索
+  while(open.length){
+    var st = open.shift();
+    // ゴールしたらループから抜ける
+    if(st.y==gy&&st.x==gx) {
+      gst = st;
+      break;
+    }
+    if(closed.indexOf(st.y<<16|st.x)!=-1){
+      continue;
+    }
+    if(field[st.y][st.x]==='□'){
+      console.log(st);
+      continue;
+    }
+    field[st.y][st.x]="＊";
+    for(var i=0;i<4;i++){
+      open.push(new State(st.y+dy[i],st.x+dx[i],st));
+    }
+    closed.push(st.y<<16|st.x);
+  }
+  // 帰ってきたStateから最短経路を復元する
+  while(true){
+    field[gst.y][gst.x]="〇";
+    if(gst.st===null) break;
+    gst=gst.st;
+  }
+  return field;
+}
