@@ -22,6 +22,8 @@ const NOTICE_CHANNEL = "716879387072528384";// #お知らせID
 const BOT_CHANNEL = "758946751830163477";// #Bot開発ID
 const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
+const INST_TEXT = "786125903460958230";// ゲーム説明書のメッセージID
+const NYAN_ID = "";// BOTID
 const GUILD_ID = "694442026762240090";// 木島研サーバーのID
 // 読み上げ関係
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
@@ -101,7 +103,8 @@ http.createServer(function(req, res){
 client.on('ready', message =>{
   console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
-  //client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 }).then(messages => messages.forEach(message=>message.delete()));// ゲームチャンネルのテキストメッセージを削除する
+  client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 })
+  .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -133,6 +136,8 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 client.on('message', message =>{
   // 匿名チャンネルの処理
   anony(message);
+  // ゲームチャンネルの処理
+  game(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
   if (message.author.id == client.user.id || message.author.bot) return;
   // 特定のメッセージが含まれる文章は処理しない
@@ -459,7 +464,8 @@ function sel(message){
 // デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
-    notice(BOT_CHANNEL);
+    //notice(BOT_CHANNEL);
+    
     message.delete();
   }
 }
@@ -752,8 +758,32 @@ class State{
     this.st = st;
   }
 }
+
+class Nyanchu{
+  constructor(y,x){
+    this.x = x;
+    this.y = y;
+    this.brakePoint = 0;// 壁を壊せる回数
+    this.landmines = 0;// 地雷の個数
+  }
+}
+
+class Enemy{
+  constructor(y,x){
+    this.x = x;
+    this.y = y;
+  }
+}
+
 const dx = [0,-1,0,1];
 const dy = [1,0,-1,0];
+let field;
+const H = 11;
+const W = 11;
+let gameMsg=[];
+let nyan;
+let enemy;
+var gameOver = true;
 // 迷路生成プログラム
 function maze(message){
   if(message.content.match(/maze/)){
@@ -763,10 +793,8 @@ function maze(message){
       return;
     }
     // フィールド用意
-    var H = Number(str[2]);// 奇数
-    if(H%2==0) H++;
-    var W = Number(str[1]);// 奇数
-    if(W%2==0) W++;
+    var H = Number(str[2]);
+    var W = Number(str[1]);
     let field = makeMaze(H,W);
     // 出力
     let text = "めいろ(左上スタート,右下ゴール)\n";
@@ -797,9 +825,59 @@ function maze(message){
     message.delete();
   }
 }
+// 
+function game(message){
+  if(message.author.id!=client.user.id){
+    // 初期化
+    if(gameOver){
+      let fieldText = makeMaze(H,W);
+      // フィールド生成
+      field = new Array(H);
+      for(var i=0;i<H;i++){
+        field[i] = new Array(W).fill(1);
+      }
+      // フィールドテキストを参照、通路を判定し数値に変換する
+      for(var i=0;i<H;i++){
+        for(var j=0;j<W;j++){
+          if(fieldText[i+1][j+1]==="　") field[i][j] = 0;
+        }
+      }
+      situate(H,W,field,0,5,1);// 壁をいくつか通路に変換する
+      situate(H,W,field,2,10,0);// ダメージポイントを生成
+      situate(H,W,field,3,10,0);// 回復ポイントを生成
+      situate(H,W,field,4,10,0);// 壁壊しポイントを生成
+      situate(H,W,field,5,10,0);// 地雷ポイントを生成
+      field[1][1] = 6;// ゴール
+      enemy = [];
+      nyan = new Nyanchu(H-2,W-2);
+      for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
+      gameOver = false;
+    }else{
+      if(message.content.indexOf("w")!=-1) nyan.y--;
+      else if(message.content.indexOf("s")!=-1) nyan.y++;
+      else if(message.content.indexOf("d")!=-1) nyan.x++;
+      else if(message.content.indexOf("a")!=-1) nyan.x--;
+    }
+    display(H,W,field,message);// フィールドをGAME_CHANNELに描画
+    message.delete();
+  }else{
+    if(gameMsg.length){
+      if(gameMsg[gameMsg.length-1].content.indexOf("☆")!=-1){
+      // 前フレームのメッセージを削除する
+      for(var i=0;i<gameMsg.length;i++){
+        let msg = gameMsg.pop();
+        msg.delete();
+        }
+      }
+    }
+    gameMsg.push(message);
+  }
+}
 
 // 穴掘り法でW×Hの迷路を生成する
 function makeMaze(H,W){
+  if(H%2==0) H++;
+  if(W%2==0) W++;
   let field = new Array(H+2);
   for(var i=0;i<H+2;i++){
     field[i] = new Array(W+2).fill("□");
@@ -809,7 +887,6 @@ function makeMaze(H,W){
       if(i==0||j==0||i==H+1||j==W+1) field[i][j] = "　";
     }
   }
-
   // 迷路生成
   var open = [];
   var fx = Math.floor(Math.random()*(W-1)/2+1)*2;
@@ -841,7 +918,7 @@ function makeMaze(H,W){
   return field;
 }
 
-// 二重配列をテキストにして出力する
+// ダイクストラ法で最短経路を求める
 function dijkstra(H,W,field,sx,sy,gx,gy){
   var gst = new State(gy,gx,null);
   var open = [];
@@ -859,7 +936,6 @@ function dijkstra(H,W,field,sx,sy,gx,gy){
       continue;
     }
     if(field[st.y][st.x]==='□'){
-      console.log(st);
       continue;
     }
     field[st.y][st.x]="＊";
@@ -875,4 +951,38 @@ function dijkstra(H,W,field,sx,sy,gx,gy){
     gst=gst.st;
   }
   return field;
+}
+// 通路に置く
+function situate(H,W,field,id,num,mode){
+  while(num){
+    var sx = Math.floor(Math.random()*(W-2)+1);
+    var sy = Math.floor(Math.random()*(H-2)+1);
+    if(field[sy][sx]==mode&&!(sy==H-1&&sx==W-1)) {
+      field[sy][sx]=id;
+      num--;
+    }
+  }
+  return field;
+}
+// 迷路をテキストにして送信
+function display(H,W,field,message){
+  // 出力
+  const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:767331341212581888>','<:enemy:768089974095872040>'];
+  let text = "ゲーム\n";
+  for(var i=1;i<H-1;i++){
+    for(var j=1;j<W-1;j++){
+      let t = fieldIdToText[field[i][j]];
+      if(i==nyan.y&&j==nyan.x) t=fieldIdToText[7];//ニャンちゅう描画
+      for(var k=0;k<enemy.length;k++){// 敵の描画
+        if(i==enemy[k].y&&j==enemy[k].x) t=fieldIdToText[8];
+      }
+      text+=t;
+    }
+    if(text.length>1600){
+      sendMsg(GAME_CHANNEL,text);
+      text="";
+    }
+    text+="\n";
+  }
+  sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
 }
