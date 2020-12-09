@@ -820,8 +820,9 @@ let enemy;
 let bomb;
 let flavorText;
 var gameOver = true;
-const objectName = ["玉ねぎ","土星","たらい","ゴマダレ","画鋲","つらら","新幹線","イガグリ","海水","ゴミ","だるまさん","おねぇ″さ″ん","おじさん","犯罪者","ブラジル","たまごかけご飯","仮想空間","ハヤシライス","家族","福沢諭吉","３兆円","岐阜大学"];
-const objectMinusVerb = ["が降ってきた","が目に入った","を踏んだ","とぶつかった","に背後から襲われた","に殴られた","を踏み抜いた","に突き刺さった","で転んだ","に激突した","にビンタされた"];
+const objectName = ["玉ねぎ","土星","たらい","ゴマダレ","画鋲","つらら","新幹線","イガグリ","海水","ゴミ","だるまさん","おねぇ″さ″ん","おじさん","犯罪者","ブラジル","たまごかけご飯","仮想空間","ハヤシライス","家族","福沢諭吉","３兆円","岐阜大学",
+                    "女子高生","女子アナ","女子大生","小学生","ブラックホール","タモリ","お団子","ハイエンドPC","木島先生","マッチョ","シイタケ","人工知能","安西先生","NHK","もう一人のミー","ピクミン"];
+const objectMinusVerb = ["が降ってきた","が目に入った","を踏んだ","とぶつかった","に背後から襲われた","に殴られた","を踏み抜いた","に突き刺さった","で転んだ","に激突した","にビンタされた","に潰された"];
 const objectPlusVerb = ["に癒された","を食べて元気が出た","と出会ってうれしい","と一緒に踊った","が応援してくれた","が励ましてくれた","に囲まれて幸せ","に抱きしめられた","の一発ギャグが面白かった","を手に入れてうれしい"];
 // ゲームの処理を行う
 function game(message){
@@ -954,19 +955,19 @@ function processEvent(message){
   }else if(field[nyan.y][nyan.x]==2) {
     nyan.hp--;
     nyan.score-=10;
-    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectMinusVerb[Math.floor(Math.random()*objectMinusVerb.length)]+"にゃ″ん！";
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectMinusVerb[Math.floor(Math.random()*objectMinusVerb.length)]+"にゃ″ん！(1ダメージ)";
   }else if(field[nyan.y][nyan.x]==3) {
     nyan.hp++;
     nyan.score+=50;
-    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectPlusVerb[Math.floor(Math.random()*objectPlusVerb.length)]+"にゃ″ん！";
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectPlusVerb[Math.floor(Math.random()*objectPlusVerb.length)]+"にゃ″ん！(HP1回復)";
   }else if(field[nyan.y][nyan.x]==4) {
     nyan.breakPoint++;
     nyan.score+=30;
-    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が壁を壊す力を授けてくれたにゃ″ん！";
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が壁を壊す力を授けてくれたにゃ″ん！(破壊+1)";
   }else if(field[nyan.y][nyan.x]==5) {
     nyan.landmines++;
     nyan.score+=30;
-    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が地雷をくれたにゃ″ん！";
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が地雷をくれたにゃ″ん！(地雷+1)";
   }else if(field[nyan.y][nyan.x]==6){
     gameOver = true;
     nyan.clear = true;
@@ -992,7 +993,7 @@ function processEvent(message){
     return;
   }
   field[nyan.y][nyan.x]=0;
-  if(nyan.hp<=0) {
+  if(nyan.hp<=0||(gameOver&&!nyan.clear)) {
     gameOver=true;
     flavorText="にゃんちゅうは死んだよ";
   }
