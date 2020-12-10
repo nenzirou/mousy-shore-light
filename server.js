@@ -908,7 +908,12 @@ function situate(H,W,field,id,num,mode){
 // 迷路をテキストにして送信
 function display(H,W,field,message){
   const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:786216879663874109>','<:obake:786217527675453460>','<:bakudan:786221416261353482>','<:death:767774739195494480>',':purple_square:'];
-  let text = "プレイヤー："+message.member.displayName+"　"+nyan.turn+"ターン目\n";
+  let text = "プレイヤー：";
+  if(nyan.turn==0||nyan.clear){
+    text+="no player\n";
+  }else{
+    text+=message.member.displayName+"　"+nyan.turn+"ターン目\n";
+  }
   for(var i=1;i<H-1;i++){
     for(var j=1;j<W-1;j++){
       let t = fieldIdToText[field[i][j]];
@@ -954,7 +959,6 @@ function processEvent(message){
     flavorText="壁の中にいるにゃ。";
   }else if(field[nyan.y][nyan.x]==2) {
     nyan.hp--;
-    nyan.score-=10;
     flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectMinusVerb[Math.floor(Math.random()*objectMinusVerb.length)]+"にゃ″ん！(1ダメージ)";
   }else if(field[nyan.y][nyan.x]==3) {
     nyan.hp++;
@@ -962,17 +966,17 @@ function processEvent(message){
     flavorText=objectName[Math.floor(Math.random()*objectName.length)]+objectPlusVerb[Math.floor(Math.random()*objectPlusVerb.length)]+"にゃ″ん！(HP1回復)";
   }else if(field[nyan.y][nyan.x]==4) {
     nyan.breakPoint++;
-    nyan.score+=30;
+    nyan.score+=50;
     flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が壁を壊す力を授けてくれたにゃ″ん！(破壊+1)";
   }else if(field[nyan.y][nyan.x]==5) {
     nyan.landmines++;
-    nyan.score+=30;
+    nyan.score+=50;
     flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が地雷をくれたにゃ″ん！(地雷+1)";
   }else if(field[nyan.y][nyan.x]==6){
     gameOver = true;
     nyan.clear = true;
     flavorText="迷路から脱出できたにゃ″ん！";
-    nyan.score+=nyan.hp*50+(50-nyan.turn)*10;
+    nyan.score+=nyan.hp*50+(50-nyan.turn)*20;
     client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit(rank(nyan.score,message.member.displayName));// ランキング更新
   }else if(field[nyan.y][nyan.x]==9) {
     flavorText="地雷が置いてあるにゃ″ん！";
