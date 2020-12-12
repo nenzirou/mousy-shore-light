@@ -104,9 +104,10 @@ http.createServer(function(req, res){
 client.on('ready', message =>{
   console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
-  client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 10 })
+  client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 20 })
   .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT&&message.id!=RANK_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
 });
+
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule('30 5 22 * * *', () => {
@@ -789,7 +790,7 @@ class Enemy{
     if(field[this.y][this.x]==9){// 地雷の処理
       for(var i=0;i<3;i++){
         for(var j=0;j<3;j++){
-          field[this.y-1+i][this.x-1+j] = 1;
+          if(!(this.y-1+i==1&&this.x-1+j==1)) field[this.y-1+i][this.x-1+j] = 1;
         }
       }
       nyan.score+=500;
@@ -844,12 +845,12 @@ function game(message){
         }
         field[H-3][W-2] = 0;
         field[H-2][W-3] = 0;
-        situate(H,W,field,0,5,1);// 壁をいくつか通路に変換する
-        situate(H,W,field,2,12,0);// ダメージポイントを生成
+        situate(H,W,field,0,7,1);// 壁をいくつか通路に変換する
+        situate(H,W,field,2,10,0);// ダメージポイントを生成
         situate(H,W,field,3,12,0);// 回復ポイントを生成
         situate(H,W,field,4,7,0);// 壁壊しポイントを生成
         situate(H,W,field,5,7,0);// 地雷ポイントを生成
-        situate(H,W,field,11,2,0);// ワープポイントを生成
+        situate(H,W,field,11,2,1);// ワープポイントを生成
         field[1][1] = 6;// ゴール
         enemy = [];
         bomb = [];
@@ -858,12 +859,12 @@ function game(message){
         for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
         gameOver = false;
       }else{// メインループ
-        if(message.content.indexOf("w")!=-1) moveNyan(nyan.y-1,nyan.x);
-        else if(message.content.indexOf("s")!=-1) moveNyan(nyan.y+1,nyan.x);
-        else if(message.content.indexOf("d")!=-1) moveNyan(nyan.y,nyan.x+1);
-        else if(message.content.indexOf("a")!=-1) moveNyan(nyan.y,nyan.x-1);
-        else if(message.content.indexOf("r")!=-1) gameOver = true;
-        else if(message.content.indexOf("q")!=-1&&nyan.landmines>0) {
+        if(message.content.match(/w|か/)) moveNyan(nyan.y-1,nyan.x);
+        else if(message.content.match(/s|な/)) moveNyan(nyan.y+1,nyan.x);
+        else if(message.content.match(/d|は/)) moveNyan(nyan.y,nyan.x+1);
+        else if(message.content.match(/a|た/)) moveNyan(nyan.y,nyan.x-1);
+        else if(message.content.match(/r|さ/)) gameOver = true;
+        else if(message.content.match(/q|あ/)&&nyan.landmines>0) {
           bomb.push(new Bomb(nyan.y,nyan.x));
           nyan.landmines--;
           field[nyan.y][nyan.x] = 9;
@@ -898,7 +899,7 @@ function situate(H,W,field,id,num,mode){
   while(num){
     var sx = Math.floor(Math.random()*(W-2)+1);
     var sy = Math.floor(Math.random()*(H-2)+1);
-    if(field[sy][sx]==mode&&!(sy==H-2&&sx==W-2)) {
+    if(field[sy][sx]==mode&&!(sy>H-4&&sx>W-4)&&!(sy==1&&sx==1)) {
       field[sy][sx]=id;
       num--;
     }
@@ -977,7 +978,9 @@ function processEvent(message){
     nyan.clear = true;
     flavorText="迷路から脱出できたにゃ″ん！";
     nyan.score+=nyan.hp*50+(50-nyan.turn)*20;
-    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit(rank(nyan.score,message.member.displayName));// ランキング更新
+    console.log(nyan.score);
+    let text = rank(nyan.score,message.member.displayName);
+    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit(text);// ランキング更新
   }else if(field[nyan.y][nyan.x]==9) {
     flavorText="地雷が置いてあるにゃ″ん！";
     return;
@@ -1014,7 +1017,7 @@ function rank(score,name){
     // ランキングのソート
     for(var i=0;i<4;i++){
       for(var j=0;j<4;j++){
-        if(Number(ranking[j*2+1])<=Number(ranking[(j+1)*2+1])) {
+        if(Number(ranking[j*2+1])<Number(ranking[(j+1)*2+1])) {
           let tmpName = ranking[j*2];
           ranking[j*2]=ranking[(j+1)*2];
           ranking[(j+1)*2] = tmpName;
