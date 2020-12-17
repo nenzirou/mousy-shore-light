@@ -20,7 +20,7 @@
     "unirest": "^0.6.0",
     "voice-text": "^0.1.2",
     "voicetext": "0.0.7",
-    "ytdl-core": "^3.3.0"
+    "ytdl-core": "^3.4.2"
   },
   "engines": {
     "node": "12.x"
