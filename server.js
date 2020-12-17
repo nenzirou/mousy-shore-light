@@ -24,6 +24,7 @@ const GAME_CHANNEL = "768724791141990461";// #gameID
 const ANONY_CHANNEL = "768723934966841355";// #匿名掲示板ID
 const INST_TEXT = "786125903460958230";// ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599";// ランキングのメッセージID
+const DISP_TEXT = "788263576594153472"// ディスプレイのメッセージID
 const GUILD_ID = "694442026762240090";// 木島研サーバーのID
 // 読み上げ関係
 const voiceTable = ['hikari', 'haruka', 'takeru', 'santa', 'show'];// ボイスの種類 bearは聞き取りずらいので除外
@@ -105,9 +106,9 @@ client.on('ready', message =>{
   console.log("Ready!");
   changeState();// プレイ中のゲーム名を変更
   client.channels.cache.get(GAME_CHANNEL).messages.fetch({ after: '0', limit: 20 })
-  .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT&&message.id!=RANK_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
+  .then(messages => messages.forEach(message=>{if(message.id!=INST_TEXT&&message.id!=RANK_TEXT&&message.id!=DISP_TEXT) message.delete()}))// ゲームチャンネルのテキストメッセージを削除する
+  client.channels.cache.get(GAME_CHANNEL).messages.fetch(DISP_TEXT);// ゲーム画面をキャッシュに保存
 });
-
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule('30 5 22 * * *', () => {
@@ -319,9 +320,9 @@ function next(message){
 }
 // 積み残しの人を追加する add
 function add(message){
-  if(message.content.match(/@add/)){
+  if(message.content.match(/add/)){
     var str = message.content.split(" ");
-    var text = "@以下の人を次のゼミ発表者に追加しました：";
+    var text = "以下の人を次のゼミ発表者に追加しました：";
     if(str.length>1){
       var judgeLength = 0;
       for(var i=1;i<str.length;i++){
@@ -333,7 +334,7 @@ function add(message){
       }
       if(judgeLength>5) text += "\n名前が長すぎる人はミ″ーには覚えられなかったにゃ″ぁ";
     }else{
-      text = "@add 名前 名前 ... のように半角スペースで区切って教えてくれないとミ″ーには難しいにゃ″ぁ";
+      text = "add 名前 名前 ... のように半角スペースで区切って教えてくれないとミ″ーには難しいにゃ″ぁ";
     }
     save();
     sendMsg(message.channel.id, text);
@@ -466,7 +467,11 @@ function sel(message){
 // デバッグ用 @db
 function debug(message){
   if(message.content.match(/@db/)){
-    client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit("ミーは灰皿じゃないにゃああああん");
+    //client.channels.cache.get(GAME_CHANNEL).messages.cache.get(RANK_TEXT).edit(rank(0,"a"));
+    //client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).react("⬆️");// ランキング更新
+    //client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).react("⬇️");// ランキング更新
+    //client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).react("⬅️");// ランキング更新
+    //client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).react("➡️");// ランキング更新
     message.delete();
   }
 }
@@ -632,7 +637,7 @@ function load(){
     zemiName = Number(str[0]);
     anonyId = str[1];
     if(str[2]!=="none"){
-      for(var i=0;i<str.length-2;i++){
+      for(var i=1;i<str.length-2;i++){
         addName.push(str[i+2]);
       }
     }
@@ -703,10 +708,10 @@ function weatherForecast(){
       console.log(res.body.daily[0]);
       //console.log(res.body);
       var hourName = [":sunflower:現在 ： ",":sun_with_face:正午 ： ",":crescent_moon:夕方 ： "];
-      var hour = [0,6,12];
+      var hour = [1,6,12];
       for(var i=0;i<3;i++){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
-        text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"湿度"+res.body.hourly[hour[i]].humidity+"%\n";
+        text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"\n";
       }
       let time = getTime();
       let tw = time[3];
@@ -825,6 +830,11 @@ const objectName = ["玉ねぎ","土星","たらい","ゴマダレ","画鋲","�
                     "女子高生","女子アナ","女子大生","小学生","ブラックホール","タモリ","お団子","ハイエンドPC","木島先生","マッチョ","シイタケ","人工知能","安西先生","NHK","もう一人のミー","ピクミン"];
 const objectMinusVerb = ["が降ってきた","が目に入った","を踏んだ","とぶつかった","に背後から襲われた","に殴られた","を踏み抜いた","に突き刺さった","で転んだ","に激突した","にビンタされた","に潰された"];
 const objectPlusVerb = ["に癒された","を食べて元気が出た","と出会ってうれしい","と一緒に踊った","が応援してくれた","が励ましてくれた","に囲まれて幸せ","に抱きしめられた","の一発ギャグが面白かった","を手に入れてうれしい"];
+
+client.on('messageReactionAdd', async (reaction, user) => {
+   console.log(`${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} をリアクションしました`);
+ })
+
 // ゲームの処理を行う
 function game(message){
   if(message.channel.id==GAME_CHANNEL){
@@ -843,8 +853,8 @@ function game(message){
             if(fieldText[i+1][j+1]==="　") field[i][j] = 0;
           }
         }
-        field[H-3][W-2] = 0;
-        field[H-2][W-3] = 0;
+        field[H-3][W-2] = 0;//初期位置のとなりは通路
+        field[H-2][W-3] = 0;//初期位置のとなりは通路
         situate(H,W,field,0,7,1);// 壁をいくつか通路に変換する
         situate(H,W,field,2,10,0);// ダメージポイントを生成
         situate(H,W,field,3,12,0);// 回復ポイントを生成
@@ -856,7 +866,20 @@ function game(message){
         bomb = [];
         nyan = new Nyanchu(H-2,W-2);
         flavorText="レッツスタートにゃ～！";
-        for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
+        let enemyNum = 3;
+        en:while(enemyNum){
+          let eX = Math.floor(Math.random()*(W-1))+1;
+          let eY = Math.floor(Math.random()*(H-1))+1;
+          if(eX>=W-5&&eY>=H-5) continue;
+          for(var i=0;i<enemy.length;i++){
+            if(enemy[i].x==eX&&enemy[i].y==eY) continue en;
+          }
+          if(field[eY][eX]==0){
+            enemy.push(new Enemy(eY,eX));
+            enemyNum--;
+          }
+        }
+        //for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
         gameOver = false;
       }else{// メインループ
         if(message.content.match(/w|か/)) moveNyan(nyan.y-1,nyan.x);
@@ -932,7 +955,8 @@ function display(H,W,field,message){
   if(gameOver&&!nyan.clear) text+=":red_square:　　GAME OVER　　:red_square:\n";
   text+="HP："+nyan.hp+"　破壊："+nyan.breakPoint+"　地雷："+nyan.landmines+"　スコア："+nyan.score;
   text+="\nニャンちゅう「"+flavorText+"」";
-  sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
+  //sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
+  client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).edit(text+"☆");// ランキング更新
 }
 // -1 動けない 0 動いた 1 壁を破壊した
 function moveNyan(y,x){
