@@ -776,7 +776,9 @@ class Nyanchu{
     this.turn = 0;// 経過ターン
     this.breakPoint = 0;// 壁を壊せる回数
     this.landmines = 0;// 地雷の個数
-    this.score = 0;
+    this.stop = 0;// 時間を停止できる回数
+    this.stopCnt = 0;// 時間が停止する残りターン数
+    this.score = 0;// スコア
     this.clear = false;//クリア判定
   }
 }
@@ -800,6 +802,11 @@ class Enemy{
       }
       nyan.score+=500;
       flavorText = "やったー！敵を閉じ込めたにゃ″ん！";
+    }
+    if(field[this.y][this.x]==11){
+      var xy = warp(this.x,this.y);
+      this.x = xy[0];
+      this.y = xy[1];
     }
     if(nyan.x==this.x&&nyan.y==this.y){
       gameOver = true;
@@ -855,12 +862,13 @@ function game(message){
         }
         field[H-3][W-2] = 0;//初期位置のとなりは通路
         field[H-2][W-3] = 0;//初期位置のとなりは通路
-        situate(H,W,field,0,7,1);// 壁をいくつか通路に変換する
-        situate(H,W,field,2,10,0);// ダメージポイントを生成
-        situate(H,W,field,3,12,0);// 回復ポイントを生成
-        situate(H,W,field,4,7,0);// 壁壊しポイントを生成
-        situate(H,W,field,5,7,0);// 地雷ポイントを生成
-        situate(H,W,field,11,2,1);// ワープポイントを生成
+        situate(H,W,field,0,7,1);  // 壁をいくつか通路に変換する
+        situate(H,W,field,2,10,0); // ダメージポイントを生成
+        situate(H,W,field,3,12,0); // 回復ポイントを生成
+        situate(H,W,field,4,6,0);  // 壁壊しポイントを生成
+        situate(H,W,field,5,6,0);  // 地雷ポイントを生成
+        situate(H,W,field,12,2,0); // 停止ポイントを生成
+        situate(H,W,field,11,2,1); // ワープポイントを生成
         field[1][1] = 6;// ゴール
         enemy = [];
         bomb = [];
@@ -886,18 +894,39 @@ function game(message){
         else if(message.content.match(/s|な/)) moveNyan(nyan.y+1,nyan.x);
         else if(message.content.match(/d|は/)) moveNyan(nyan.y,nyan.x+1);
         else if(message.content.match(/a|た/)) moveNyan(nyan.y,nyan.x-1);
-        else if(message.content.match(/r|さ/)) gameOver = true;
-        else if(message.content.match(/q|あ/)&&nyan.landmines>0) {
+        else if(message.content.match(/r|わ/)) gameOver = true;
+        else if(message.content.match(/q|あ/)) {
+          if(nyan.landmines==0){
+            flavorText = "地雷を持ってないにゃん！";
+            display(H,W,field,message);// フィールドをGAME_CHANNELに描画
+            message.delete();
+            return;
+          }
           bomb.push(new Bomb(nyan.y,nyan.x));
           nyan.landmines--;
           field[nyan.y][nyan.x] = 9;
         }
-        nyan.turn++;
-        processEvent(message);
-        if(field[nyan.y][nyan.x]!=9){
-          for(var i=0;i<enemy.length;i++){
-            enemy[i].move(H,W,field,nyan);
+        else if(message.content.match(/e|さ/)){
+          if(nyan.stop==0){
+            flavorText = "時を止められないにゃん！";
+            display(H,W,field,message);// フィールドをGAME_CHANNELに描画
+            message.delete();
+            return;
           }
+          nyan.stopCnt+=4;
+          nyan.stop--;
+        }
+        processEvent(message);
+        if(nyan.stopCnt==0){
+          nyan.turn++;
+          if(field[nyan.y][nyan.x]!=9){
+            for(var i=0;i<enemy.length;i++){
+              enemy[i].move(H,W,field,nyan);
+            }
+          }
+        }else{
+          nyan.stopCnt--;
+          flavorText = "残り"+nyan.stopCnt+"ターン時が止まるにゃ！";
         }
       }
       display(H,W,field,message);// フィールドをGAME_CHANNELに描画
@@ -931,9 +960,9 @@ function situate(H,W,field,id,num,mode){
 }
 // 迷路をテキストにして送信
 function display(H,W,field,message){
-  const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:786216879663874109>','<:obake:786217527675453460>','<:bakudan:786221416261353482>','<:death:767774739195494480>',':purple_square:'];
+  const fieldIdToText = [':white_large_square:',':white_square_button:',':red_square:',':blue_square:',':green_square:',':green_square:',':yellow_square:','<:nyan:786216879663874109>','<:obake:786217527675453460>','<:bakudan:786221416261353482>','<:death:767774739195494480>',':purple_square:',':green_square:'];
   let text = "プレイヤー：";
-  if(nyan.turn==0||nyan.clear){
+  if(nyan.turn==0||nyan.clear||gameOver){
     text+="no player\n";
   }else{
     text+=message.member.displayName+"　"+nyan.turn+"ターン目\n";
@@ -953,10 +982,9 @@ function display(H,W,field,message){
     text+="\n";
   }
   if(gameOver&&!nyan.clear) text+=":red_square:　　GAME OVER　　:red_square:\n";
-  text+="HP："+nyan.hp+"　破壊："+nyan.breakPoint+"　地雷："+nyan.landmines+"　スコア："+nyan.score;
+  text+="HP："+nyan.hp+"　破壊："+nyan.breakPoint+"　地雷："+nyan.landmines+"　停止："+nyan.stop+"　スコア："+nyan.score;
   text+="\nニャンちゅう「"+flavorText+"」";
-  //sendMsg(GAME_CHANNEL,text+"☆");// 迷路出力
-  client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).edit(text+"☆");// ランキング更新
+  client.channels.cache.get(GAME_CHANNEL).messages.cache.get(DISP_TEXT).edit(text+"☆");// ディスプレイ更新
 }
 // -1 動けない 0 動いた 1 壁を破壊した
 function moveNyan(y,x){
@@ -1010,18 +1038,13 @@ function processEvent(message){
     return;
   }else if(field[nyan.y][nyan.x]==11){
     flavorText="ワープしたにゃ″ん！";
-    // ワープ処理
-    warp :for(var i=0;i<H;i++){
-      for(var j=0;j<W;j++){
-        if(i==nyan.y&&j==nyan.x) continue;
-        if(field[i][j]==11) {
-          nyan.x = j;
-          nyan.y = i;
-          break warp;
-        }
-      }
-    }
+    var xy = warp(nyan.x,nyan.y);
+    nyan.x = xy[0];
+    nyan.y = xy[1];
     return;
+  }else if(field[nyan.y][nyan.x]==12){
+    flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が時を止める能力をくれたにゃん！";
+    nyan.stop++;
   }
   field[nyan.y][nyan.x]=0;
   if(nyan.hp<=0||(gameOver&&!nyan.clear)) {
@@ -1070,6 +1093,17 @@ function rank(score,name){
   return text;
 }
 
+// 現在の位置から別のワープますの座標を割り出す
+function warp(x,y){
+  warp :for(var i=0;i<H;i++){
+    for(var j=0;j<W;j++){
+      if(i==y&&j==x) continue;
+      if(field[i][j]==11) {
+        return [j,i];
+      }
+    }
+  }
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1180,7 +1214,8 @@ function dijkstra(H,W,field,sx,sy,gx,gy){
       continue;
     }
     for(var i=0;i<4;i++){
-      open.push(new State(st.y+dy[i],st.x+dx[i],st));
+      var ns = new State(st.y+dy[i],st.x+dx[i],st);
+      open.push(ns);
     }
     closed.push(st.y<<16|st.x);
   }
