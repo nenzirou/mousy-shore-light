@@ -707,8 +707,8 @@ function weatherForecast(){
       console.log(res.body.current);
       console.log(res.body.daily[0]);
       //console.log(res.body);
-      var hourName = [":sunflower:現在 ： ",":sun_with_face:正午 ： ",":crescent_moon:夕方 ： "];
-      var hour = [1,6,12];
+      var hourName = [":sunrise_over_mountains:07時 ： ",":sun_with_face:12時 ： ",":sunrise:18時 ： "];
+      var hour = [0,5,11];
       for(var i=0;i<3;i++){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
         text1+="気温"+makeEmpty(Math.round(res.body.hourly[hour[i]].temp)+"℃",4,0)+"\n";
@@ -926,7 +926,7 @@ function game(message){
           }
         }else{
           nyan.stopCnt--;
-          flavorText = "残り"+nyan.stopCnt+"ターン時が止まるにゃ！";
+          flavorText = "残り"+nyan.stopCnt+"ターン時を止めるにゃ！";
         }
       }
       display(H,W,field,message);// フィールドをGAME_CHANNELに描画
@@ -1045,6 +1045,7 @@ function processEvent(message){
   }else if(field[nyan.y][nyan.x]==12){
     flavorText=objectName[Math.floor(Math.random()*objectName.length)]+"が時を止める能力をくれたにゃん！";
     nyan.stop++;
+    nyan.score+=50;
   }
   field[nyan.y][nyan.x]=0;
   if(nyan.hp<=0||(gameOver&&!nyan.clear)) {
