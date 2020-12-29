@@ -41,6 +41,9 @@ const zemiWeek = [1,2,4];// 曜日を数値で表す0~6 日~土
 const zemiTime = [16,"30",14,"45",14,"45"];// zemiWeekに対応するゼミの開始時間
 let zemiName = 0;// 発表者の配列番号
 let addName = [""];
+const greeting = [[1,1,"あけましておめでとうございます！"],[2,3,"鬼は外、福は内！"],[2,14,"ハッピーバレンタイン！"],[3,3,"あかりをつけましょ　ぼんぼりに"],
+                  [3,14,"ハッピーホワイトデー！"],[4,1,""],[5,9,"全母親に感謝を。"],[6,20,"全父親に感謝を"],[7,7,"七夕がやってきた！"],[10,31,"ハッピーハロウィン！"],
+                  [12,25,"メリークリスマス！"],[12,30,"テスト"]];
 const fs = require("fs");
 let anonyId = 0;
 let ranking = [];
@@ -206,9 +209,15 @@ function notice(channel){
     if(today[3]>zemiWeek[i]) zemiId=i+1;
     if(zemiId==zemiWeek.length) zemiId = 0;
   }
-  let text = "おはようございます！\n"+today[1]+"月"+today[2]+"日"+weekIcon[today[3]]+week[today[3]]+"曜の朝がやってきました。\n";
-  if(zemiWeek.indexOf(today[3])!=-1&&channel==NOTICE_CHANNEL) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
-  else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からです。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
+  
+  let text = "おはようございます！";
+  for(var i=0;i<greeting.length;i++){
+    if(today[1]==greeting[i][0]&&today[2]==greeting[i][1]) text = greeting[i][2];
+  }
+  text += "\n"+today[1]+"月"+today[2]+"日"+weekIcon[today[3]]+week[today[3]]+"曜の朝がやってきました。\n";
+  //if(zemiWeek.indexOf(today[3])!=-1&&channel==NOTICE_CHANNEL) text += "本日"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からゼミの予定です。\n発表者は"+returnMention(zemiName)+returnAddNameMention(addName)+"です。\n";// ゼミ当日発表者に@メンション
+  //else text += "次回のゼミは"+weekIcon[zemiWeek[zemiId]]+week[zemiWeek[zemiId]]+"曜の"+zemiTime[zemiId*2]+"時"+zemiTime[zemiId*2+1]+"分からです。\n発表者は**"+combiName(name[zemiName],addName)+"**です。\n";// ゼミが無い日
+  text+="次回のゼミは1月5日の14時45分からです。\n発表者は浅野、白木です。\n";
   if(today[3] == 2 || today[3] == 5) text += ":bell:燃えるゴミの日";// 火曜日と金曜日
   if(today[3] == 3 || today[3] == 5) text += ":bell:工学実験TA(3限)";// 水曜日と金曜日
   if(today[3] == 4 && today[2]<=6)   text += makeSurText("明日は段ボール回収の日","＃");// 第一木曜日
@@ -707,7 +716,7 @@ function weatherForecast(){
       console.log(res.body.current);
       console.log(res.body.daily[0]);
       //console.log(res.body);
-      var hourName = [":sunrise_over_mountains:07時 ： ",":sun_with_face:12時 ： ",":sunrise:18時 ： "];
+      var hourName = [":sunrise_over_mountains:7時 ： ",":sun_with_face:12時 ： ",":sunrise:18時 ： "];
       var hour = [0,5,11];
       for(var i=0;i<3;i++){
         text1+=hourName[i]+returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon)+"("+makeEmpty(res.body.hourly[hour[i]].weather[0].description+")",6,1);
