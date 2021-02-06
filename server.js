@@ -161,7 +161,6 @@ const fs = require("fs");
 let anonyId = 0;
 let ranking = [];
 load(); // データをロードする
-loadBank(); //預金データをロードする
 // botを呼んだ時の反応
 const res = [
   "おぉ″ーん″！呼んだかにゃぁ″？",
@@ -484,7 +483,8 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(message => {
         if (message.id != BANK_TEXT) message.delete();
-        displayBank();
+        loadBank(); //預金データをロードする
+        saveBank();
       });
     });
 });
@@ -1233,7 +1233,7 @@ function saveBank() {
   let text = "";
   for (let i = 0; i < member.length; i++) {
     if (member[i].grade != -1) {
-      text += member[i].id + "," + member[i].G + "\n";
+      text += member[i].id + "," + member[i].G +","+member[i].name+ "\n";
     }
   }
   fs.writeFile("data/bank.txt", text, err => {
@@ -1245,39 +1245,44 @@ function loadBank() {
   fs.readFile("data/bank.txt", "utf-8", (err, data) => {
     if (err) throw err;
     let d = data.split("\n");
-    for (let i = 0; i < d.length; i++) {
+    for (let i = 0; i < d.length - 1; i++) {
       const nameMoney = d[i].split(",");
-      const memberInfo = member.find(v => v.id === d[0]);
+      const memberInfo = member.find(v => v.id == nameMoney[0]);
       if (memberInfo !== undefined) {
-        memberInfo.G = d[1];
+        memberInfo.G = nameMoney[1];
       }
     }
+    displayBank();
   });
 }
 // 預金データ表示を更新する
 function displayBank() {
   let text = "";
   const icons = [
-    { grade: 9, icon: ":purple_circle:" },
-    { grade: 2, icon: ":green_circle:" },
-    { grade: 1, icon: ":blue_circle:" },
-    { grade: 4, icon: ":orange_circle:" },
-    { grade: 3, icon: ":yellow_circle:" }
+    { grade: 9, icon: ":purple_circle:`" },
+    { grade: 2, icon: ":green_circle:`" },
+    { grade: 1, icon: ":blue_circle:`" },
+    { grade: 4, icon: ":orange_circle:`" },
+    { grade: 3, icon: ":yellow_circle:`" }
   ];
+  let preGrade = 9;
+  let sum = 0;
   for (let i = 0; i < member.length; i++) {
     if (member[i].grade != -1) {
-      for (let j = 0; j < icons.length; j++) {
-        if (member[i].grade == icons[j].grade) {
-          text += icons[j].icon;
-          break;
-        }
+      if (preGrade != member[i].grade) {
+        if(sum%2==1) text+="\n";
+        sum = 0;
       }
+      if (sum % 2 == 1) text += " ";
+      text += icons.find(v => v.grade == member[i].grade).icon;
       text +=
-        "`" +
         makeEmpty(member[i].name, 3, 1) +
-        "`：`" +
-        makeEmpty(member[i].G+"円", 6, -1) +
-        "`\n";
+        "：" +
+        makeEmpty(member[i].G + "円", 7, -1) +
+        "`";
+      preGrade = member[i].grade;
+      if (sum % 2 == 1) text += "\n";
+      sum++;
     }
   }
   client.channels.cache
