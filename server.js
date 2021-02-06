@@ -6,31 +6,32 @@
 
 // ディスコードに入っている人の一覧です。
 // idにはディスコードのメンバーリストを右クリック→「IDをコピー」でコピーしたものを入れてください。
-// lastNameにはその人の苗字を入れてください。
-// zemiOrderにはその人のゼミ発表順を入れてください。発表が無い人には-1を入れてください。
-// idの小ささでその人のゲーマー度が図れます。
-const zemiOrderNum = 6; //ゼミ周期の個数を入れてください。
+// nameにはその人の苗字を入れてください。
+// zOrderにはその人のゼミ発表順を入れてください。発表が無い人には-1を入れてください。
+// Gには、share販売を使用する人には0,使用しない人に-1を入れてください。読み込まれたお金がここに入ります。
+// gradeには、M2:2 M1:1 B4:4 B3:3 教授:9 それ以外:-1を入力してください　share販売の表示に使用します。
+const zOrderNum = 6; //ゼミ周期の個数を入れてください。
 const member = [
-  { id: "758946932210008085", lastName: "ニャンちゅう", zemiOrder: -1 },
-  { id: "744759519011143730", lastName: "研究室", zemiOrder: -1 },
-  { id: "702413329691443270", lastName: "木島", zemiOrder: -1 },
-  { id: "730939586620031007", lastName: "木島Android", zemiOrder: -1 },
-  { id: "715796433487396864", lastName: "伊藤", zemiOrder: 0 },
-  { id: "331787151341780994", lastName: "犬飼", zemiOrder: 5 },
-  { id: "699500872442314754", lastName: "尾山", zemiOrder: 3 },
-  { id: "708191971424075797", lastName: "南部", zemiOrder: 4 },
-  { id: "243312886049406979", lastName: "浅野", zemiOrder: 1 },
-  { id: "694443025287610408", lastName: "稲守", zemiOrder: 3 },
-  { id: "337439445269741568", lastName: "高岡", zemiOrder: 4 },
-  { id: "694899614201020448", lastName: "松野", zemiOrder: 2 },
-  { id: "695626581187756102", lastName: "白木", zemiOrder: 1 },
-  { id: "694560220730359890", lastName: "野ツ俣", zemiOrder: 5 },
-  { id: "625491071475908651", lastName: "三木", zemiOrder: 0 },
-  { id: "336031337452666880", lastName: "虫鹿", zemiOrder: 2 },
-  { id: "771287651818143755", lastName: "大橋", zemiOrder: -2 },
-  { id: "600210954503979010", lastName: "谷口", zemiOrder: -2 },
-  { id: "706476736467959818", lastName: "新良", zemiOrder: -2 },
-  { id: "749561829558321182", lastName: "平野", zemiOrder: -2 }
+  { id: "758946932210008085", name: "BOT", zOrder: -1, G: 0, grade: -1 },
+  { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
+  { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
+  { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
+  { id: "715796433487396864", name: "伊藤", zOrder: 0, G: 0, grade: 2 },
+  { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
+  { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
+  { id: "708191971424075797", name: "南部", zOrder: 4, G: 0, grade: 2 },
+  { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
+  { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
+  { id: "337439445269741568", name: "高岡", zOrder: 4, G: 0, grade: 1 },
+  { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 1 },
+  { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 4 },
+  { id: "694560220730359890", name: "野ツ俣", zOrder: 5, G: 0, grade: 4 },
+  { id: "625491071475908651", name: "三木", zOrder: 0, G: 0, grade: 4 },
+  { id: "336031337452666880", name: "虫鹿", zOrder: 2, G: 0, grade: 4 },
+  { id: "771287651818143755", name: "大橋", zOrder: -2, G: 0, grade: 3 },
+  { id: "600210954503979010", name: "谷口", zOrder: -2, G: 0, grade: 3 },
+  { id: "706476736467959818", name: "新良", zOrder: -2, G: 0, grade: 3 },
+  { id: "749561829558321182", name: "平野", zOrder: -2, G: 0, grade: 3 }
 ];
 // ゼミをいつやるか記述します。
 // weekには0~6を入れます。0:日曜日　1:月曜日　～　6:土曜日
@@ -86,6 +87,7 @@ const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
+const BANK_TEXT = "807641133206863934"; //預金の表示メッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
 let noticeList = []; // ユーザのお知らせを格納するリスト
 // 読み上げ関係
@@ -474,7 +476,7 @@ client.on("ready", message => {
           message.delete();
       })
     ); // ゲームチャンネルのテキストメッセージを削除する
-  client.channels.cache.get(GAME_CHANNEL).messages.fetch(DISP_TEXT); // ゲーム画面をキャッシュに保存
+  saveBank();
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -506,12 +508,12 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
 
 // ユーザがメッセージを投稿するとここが呼ばれる
 client.on("message", message => {
-  // 匿名チャンネルの処理
-  anony(message);
   // ゲームチャンネルの処理
   game(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
   if (message.author.id == client.user.id || message.author.bot) return;
+  // 匿名チャンネルの処理
+  anony(message);
   // 特定のメッセージが含まれる文章は処理しない
   if (message.content.match(/http|</)) return;
   // 各種反応
@@ -622,7 +624,6 @@ function notice(channel) {
   weatherForecast().then(res => {
     // 天気予報の追加
     text += res[1] + res[0] + "\n";
-
     text +=
       ":timer: 卒論提出(` 2月10日`)まで**残り`" +
       makeEmpty(remainingDays(today[1], today[2], 2, 10), 2, -1) +
@@ -633,9 +634,8 @@ function notice(channel) {
       "日`**\n";
     if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
     if (today[3] == 4 && today[2] <= 6)
-      text += makeSurText("明日は段ボール回収の日", "＃"); // 第一木曜日
-    if (today[3] == 5 && today[2] <= 7)
-      text += "\n" + makeSurText("今日は段ボール回収の日", "＊"); // 第一金曜日
+      text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
+    if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
     if (today[3] == 6)
       text +=
         today[0] +
@@ -729,13 +729,13 @@ function zemi(message) {
       "everyone\nゼミが始まります！\n**発表者：" +
       combiName(getLastNamesFromID(zemiID), addName) +
       "**\n司会　：" +
-      returnName(getLastNamesFromID((zemiID + 2) % zemiOrderNum));
+      returnName(getLastNamesFromID((zemiID + 2) % zOrderNum));
     speak(
       "今日のゼミの発表者は、" +
         combiName(getLastNamesFromID(zemiID), addName) +
         "です。" +
         "司会は" +
-        returnName(getLastNamesFromID((zemiID + 2) % zemiOrderNum)) +
+        returnName(getLastNamesFromID((zemiID + 2) % zOrderNum)) +
         "です。よろしくお願いします。",
       voiceTable[Math.floor(Math.random() * voiceTable.length)]
     );
@@ -803,7 +803,7 @@ function add(message) {
     } else {
       //自分を追加する場合
       const msgMember = member.find(v => v.id === message.member.id);
-      addAddName(msgMember.lastName);
+      addAddName(msgMember.name);
     }
     save();
     sendMsg(
@@ -956,14 +956,14 @@ function sel(message) {
     let str = message.content.split(" ");
     let sN = Number(str[1]);
     if (str[1] == null) sN = 1;
-    let list = member.filter(v => v.zemiOrder !== -1); // メンバーリストを複製する
+    let list = member.filter(v => v.zOrder !== -1); // メンバーリストを複製する
     let loop = list.length - sN; // リストの長さ-指定回数分メンバーリストからランダムに削除する
     for (let i = 0; i < loop; i++) {
       list.splice(parseInt(Math.random() * list.length), 1);
     }
     const memberList = [];
     for (let i = 0; i < list.length; i++) {
-      memberList.push(list[i].lastName);
+      memberList.push(list[i].name);
     }
     sendMsg(
       message.channel.id,
@@ -1077,34 +1077,34 @@ function returnName(name) {
 }
 
 // 指定した発表者番号渡すと、発表者グループをメンションする文字列を返す
-function returnMention(lastNameArray) {
+function returnMention(nameArray) {
   let text = "";
-  for (let i = 0; i < lastNameArray.length; i++) {
-    text += returnMentionText(lastNameArray[i]);
+  for (let i = 0; i < nameArray.length; i++) {
+    text += returnMentionText(nameArray[i]);
   }
   return text;
 }
 // 苗字を渡すと、その人をメンションする文字列を返す
-function returnMentionText(lastName) {
-  const memberInfo = member.find(v => v.lastName === lastName); //指定した苗字のメンバーの情報を取得する
+function returnMentionText(name) {
+  const memberInfo = member.find(v => v.name === name); //指定した苗字のメンバーの情報を取得する
   if (memberInfo !== undefined) return "<@" + memberInfo.id + ">"; //メンバーが存在する場合、メンションする文字列を返す
-  return lastName; //メンバーが存在しない場合、メンションしない文字列を返す
+  return name; //メンバーが存在しない場合、メンションしない文字列を返す
 }
 //ゼミIDから発表者の苗字リストを作成する
 function getLastNamesFromID(zemiID) {
-  const memberInfos = member.filter(v => v.zemiOrder === zemiID); //指定したゼミIDの発表者を探して配列に追加する
-  const lastNames = [];
+  const memberInfos = member.filter(v => v.zOrder === zemiID); //指定したゼミIDの発表者を探して配列に追加する
+  const names = [];
   for (let i = 0; i < memberInfos.length; i++) {
-    lastNames.push(memberInfos[i].lastName);
+    names.push(memberInfos[i].name);
   }
-  return lastNames;
+  return names;
 }
 
 // ゼミ順を移動する
 function opeZemi(num) {
   zemiID += num;
-  if (zemiID < 0) zemiID = zemiOrderNum - 1;
-  else if (zemiID > zemiOrderNum - 1) zemiID = 0;
+  if (zemiID < 0) zemiID = zOrderNum - 1;
+  else if (zemiID > zOrderNum - 1) zemiID = 0;
 }
 // 一周期分のゼミ順を返す
 function returnOrder() {
@@ -1112,29 +1112,30 @@ function returnOrder() {
   let tmpWeek = today[3];
   const dayList = [];
   let sum = 0;
-  for (let i = 0; i < zemiOrderNum; i++) {
+  for (let i = 0; i < zOrderNum; i++) {
     let nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek)].week; //次のゼミの曜日
     let diff = diffWeek(
       nextZemi,
       zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
     );
-    if (i == 0){
-      if(today[3]==nextZemi) nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek+1)].week; //次のゼミの曜日
+    if (i == 0) {
+      if (today[3] == nextZemi)
+        nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek + 1)].week; //次のゼミの曜日
       diff = diffWeek(today[3], nextZemi);
     }
     sum += diff;
     const next = getTime(sum * 24);
     tmpWeek = next[3];
     const remain = remainingDays(today[1], today[2], next[1], next[2]);
-    if(remain==1) dayList.push("`  明日`：");
+    if (remain == 1) dayList.push("`  明日`：");
     else dayList.push("`" + makeEmpty(remain, 2, -1) + "日後`：");
   }
   let text = "**☆発表者順☆**\n" + dayList[0];
   text += "**" + combiName(getLastNamesFromID(zemiID), addName) + "**\n";
-  for (var i = 1; i < zemiOrderNum; i++) {
+  for (var i = 1; i < zOrderNum; i++) {
     text +=
       dayList[i] +
-      returnName(getLastNamesFromID((zemiID + i) % zemiOrderNum)) +
+      returnName(getLastNamesFromID((zemiID + i) % zOrderNum)) +
       "\n";
   }
   return text;
@@ -1214,6 +1215,20 @@ function load() {
     if (td[0] !== "none") teach = td;
     if (nd[0] !== "none") noticeList = nd;
     ranking = rd;
+  });
+}
+
+// 預金データを保存する
+function saveBank() {
+  let text = "";
+  for (let i = 0; i < member.length; i++) {
+    if (member.grade != -1) {
+      text += member[i].id + "," + member[i].G + ",";
+    }
+  }
+  console.log(text);
+  fs.writeFile("data/bank.txt", text, err => {
+    if (err) throw err;
   });
 }
 // ステータスをランダムに変更する
@@ -1396,10 +1411,10 @@ function anony(message) {
   if (message.channel.id == ANONY_CHANNEL) {
     if (message.author.id == client.user.id) return;
     anonyId++;
-    save();
     let text = "(" + anonyId + ")\n" + message.content;
     message.delete();
     sendMsg(ANONY_CHANNEL, text);
+    save();
   }
 }
 
@@ -1548,12 +1563,6 @@ const objectPlusVerb = [
   "を手に入れてうれしい"
 ];
 
-client.on("messageReactionAdd", async (reaction, user) => {
-  console.log(
-    `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} をリアクションしました`
-  );
-});
-
 // ゲームの処理を行う
 function game(message) {
   if (message.channel.id == GAME_CHANNEL) {
@@ -1599,7 +1608,6 @@ function game(message) {
             enemyNum--;
           }
         }
-        //for(var i=0;i<3;i++) enemy.push(new Enemy(Math.floor(Math.random()*(H-4))+1,Math.floor(Math.random()*(W-4))+1));
         gameOver = false;
       } else {
         // メインループ
