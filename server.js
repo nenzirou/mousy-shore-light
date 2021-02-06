@@ -84,6 +84,7 @@ const DOCUMENT_CHANNEL = "790490207228788776"; // #資料ID
 const BOT_CHANNEL = "758946751830163477"; // #Bot開発ID
 const GAME_CHANNEL = "768724791141990461"; // #gameID
 const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
+const SHARE_CHANNEL = "803967819402051624"; // #share販売ID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
@@ -160,6 +161,7 @@ const fs = require("fs");
 let anonyId = 0;
 let ranking = [];
 load(); // データをロードする
+loadBank(); //預金データをロードする
 // botを呼んだ時の反応
 const res = [
   "おぉ″ーん″！呼んだかにゃぁ″？",
@@ -475,8 +477,16 @@ client.on("ready", message => {
         )
           message.delete();
       })
-    ); // ゲームチャンネルのテキストメッセージを削除する
-  saveBank();
+    ); // ゲームチャンネルのテキストメッセージを削除し、ランキングとディスプレイのテキストを読み込む
+  client.channels.cache
+    .get(SHARE_CHANNEL)
+    .messages.fetch({ after: "0", limit: 20 }) //預金ディスプレイを読み込み、それ以外のメッセージを削除する
+    .then(messages => {
+      messages.forEach(message => {
+        if (message.id != BANK_TEXT) message.delete();
+        displayBank();
+      });
+    });
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -1222,14 +1232,58 @@ function load() {
 function saveBank() {
   let text = "";
   for (let i = 0; i < member.length; i++) {
-    if (member.grade != -1) {
-      text += member[i].id + "," + member[i].G + ",";
+    if (member[i].grade != -1) {
+      text += member[i].id + "," + member[i].G + "\n";
     }
   }
-  console.log(text);
   fs.writeFile("data/bank.txt", text, err => {
     if (err) throw err;
   });
+}
+// 預金データを読み込む
+function loadBank() {
+  fs.readFile("data/bank.txt", "utf-8", (err, data) => {
+    if (err) throw err;
+    let d = data.split("\n");
+    for (let i = 0; i < d.length; i++) {
+      const nameMoney = d[i].split(",");
+      const memberInfo = member.find(v => v.id === d[0]);
+      if (memberInfo !== undefined) {
+        memberInfo.G = d[1];
+      }
+    }
+  });
+}
+// 預金データ表示を更新する
+function displayBank() {
+  let text = "";
+  const icons = [
+    { grade: 9, icon: ":purple_circle:" },
+    { grade: 2, icon: ":green_circle:" },
+    { grade: 1, icon: ":blue_circle:" },
+    { grade: 4, icon: ":orange_circle:" },
+    { grade: 3, icon: ":yellow_circle:" }
+  ];
+  for (let i = 0; i < member.length; i++) {
+    if (member[i].grade != -1) {
+      for (let j = 0; j < icons.length; j++) {
+        if (member[i].grade == icons[j].grade) {
+          text += icons[j].icon;
+          break;
+        }
+      }
+      text +=
+        "`" +
+        makeEmpty(member[i].name, 3, 1) +
+        "`：`" +
+        makeEmpty(member[i].G+"円", 6, -1) +
+        "`\n";
+    }
+  }
+  client.channels.cache
+    .get(SHARE_CHANNEL)
+    .messages.cache.get(BANK_TEXT)
+    .edit(text); // ディスプレイ更新
 }
 // ステータスをランダムに変更する
 function changeState() {
@@ -1253,7 +1307,8 @@ function makeEmpty(str, n, mode) {
   for (var i = 0; i < loop; i++) {
     if (mode == 0) str += " ";
     else if (mode == -1) str = " " + str;
-    else str += "　";
+    else if (mode == 1) str += "　";
+    else if (mode == 2) str = "　" + str;
   }
   return str;
 }
