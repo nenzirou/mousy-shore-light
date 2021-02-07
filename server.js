@@ -152,6 +152,7 @@ const weekIcon = [
 ];
 const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"];
 let bankMoney = 0; // shareの総額
+let bankText;// 預金のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let addName = [""];
 const greeting = [
@@ -493,6 +494,7 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(message => {
         if (message.id != BANK_TEXT) message.delete();
+        else bankText = message;
         loadBank(); //預金データをロードする
       });
     });
@@ -588,10 +590,29 @@ client.on("message", message => {
   if (
     message.channel.id != GAME_CHANNEL &&
     message.channel.id != ANONY_CHANNEL &&
+    message.channel.id != SHARE_CHANNEL &&
     client.voice.connections.get(GUILD_ID) !== undefined
   ) {
     sayQueue.push(message);
     say();
+  }
+});
+
+// shareのリアクションでの購入の処理を行う
+client.on("messageReactionAdd", (reaction, user) => {
+  if(reaction.message.id!=BANK_TEXT) return;// リアクション処理を#share販売のメニュー表のみに限定する
+  const userInfo = member.find(v => v.id === user.id);// リアクションを付けたユーザー情報を検索する
+  // shareの利用権限がない人の場合、リアクションを削除して処理終了
+  if (userInfo === undefined){
+    reaction.users.remove(user);
+    return;
+  }
+  if (userInfo.grade != -1) {// ユーザー情報に登録されていて、かつshare販売の利用権限がある人の場合の処理
+    const emojiID = numIcon.indexOf(reaction.emoji.name);
+    if(product.length>=emojiID+1){// 商品数以下の数字を指定されたときのみ処理
+      opeBank(userInfo,-1*product[emojiID].price);
+    }
+    reaction.users.remove(user);
   }
 });
 
@@ -1271,7 +1292,19 @@ function loadBank() {
 function addLog(str) {
   fs.readFile("data/log.txt", "utf-8", (err, data) => {
     const time = getTime(0);
-    data+=time[0]+"/"+time[1]+"/"+time[2]+"-"+time[4]+"時"+time[5]+"分："+str+"\n";
+    data +=
+      time[0] +
+      "/" +
+      makeZero(time[1],2) +
+      "/" +
+      makeZero(time[2],2) +
+      "-" +
+      makeZero(time[4],2) +
+      "時" +
+      makeZero(time[5],2) +
+      "分：" +
+      str +
+      "\n";
     fs.writeFile("data/log.txt", data, err => {
       if (err) throw err;
     });
@@ -1347,6 +1380,15 @@ function makeEmpty(str, n, mode) {
     else if (mode == -1) str = " " + str;
     else if (mode == 1) str += "　";
     else if (mode == 2) str = "　" + str;
+  }
+  return str;
+}
+// 指定した数値に指定した文字数になるように0を付けて返す
+function makeZero(str,n){
+  str = str+"";
+  const loop = n-str.length;
+  for(let i=0;i<loop;i++){
+    str = "0"+str;
   }
   return str;
 }
@@ -1518,24 +1560,44 @@ function share(message) {
   if (message.channel.id == SHARE_CHANNEL) {
     const mb = member.find(v => v.id === message.member.id);
     if (message.content.match(/^\d{1,}$|^-\d{1,}$/) && mb !== undefined) {
-      const tmp = mb.G;
-      mb.G += Number(message.content);
-      bankMoney += Number(message.content);
-      if (Number(message.content > 0)){
-        displayBank(
-          message.content + "円を入金。　" + tmp + "円 => " + mb.G + "円"
-        );
-        addLog(message.member.displayName+"が"+message.content+"円を入金");
-      }else　if(Number(message.content)<0){
-        displayBank(
-          message.content * -1 + "円を出金。　" + tmp + "円 => " + mb.G + "円"
-        );
-        addLog(message.member.displayName+"が"+message.content+"円を出金");
-      }
-      
+      opeBank(mb,Number(message.content));
+      message.delete();
+      saveBank();
     }
-    message.delete();
-    saveBank();
+  }
+}
+
+// メンバー情報とお金を入力として、その人の預金を操作する
+function opeBank(member,money) {
+  const tmp = member.G;
+  member.G += money;
+  bankMoney += money;
+  if (money > 0) {
+    displayBank(
+      money + "円を入金。　" + tmp + "円 => " + member.G + "円"
+    );
+    addLog(
+      member.name +
+        "が" +
+        money +
+        "円を入金。" +
+        tmp +
+        "円 => " +
+        member.G
+    );
+  } else if (money < 0) {
+    displayBank(
+      money * -1 + "円を出金。　" + tmp + "円 => " + member.G + "円"
+    );
+    addLog(
+      member.name +
+        "が" +
+        money * -1 +
+        "円を出金。" +
+        tmp +
+        "円 => " +
+        member.G
+    );
   }
 }
 
