@@ -1271,7 +1271,7 @@ function loadBank() {
 function addLog(str) {
   fs.readFile("data/log.txt", "utf-8", (err, data) => {
     const time = getTime(0);
-    data+=time[0]+"/"+time[1]+"/"+time[2]+"："+str;
+    data+=time[0]+"/"+time[1]+"/"+time[2]+"："+str+"\n";
     fs.writeFile("data/log.txt", data, err => {
       if (err) throw err;
     });
