@@ -1217,8 +1217,8 @@ function speak(text, speaker) {
   voicetext
     .fetchBuffer(text, { speaker: speaker, format: "ogg" })
     .then(buffer => {
-      writeFileSync("voice.ogg", buffer);
-      var dispatcher = client.voice.connections.get(GUILD_ID).play("voice.ogg");
+      writeFileSync("data/voice.ogg", buffer);
+      var dispatcher = client.voice.connections.get(GUILD_ID).play("data/voice.ogg");
       dispatcher.once("finish", () => {
         sayFlag = false;
         say();
@@ -1236,14 +1236,14 @@ function save() {
   if (noticeList.length == 0) text += "none\n";
   else text += noticeList.join(",") + "\n";
   text += ranking.join(",") + "\n";
-  fs.writeFile("tex.txt", text, err => {
+  fs.writeFile("data/data.txt", text, err => {
     if (err) throw err;
   });
 }
 // ファイルを読み込む
 // 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト 3:ゲームランキング
 function load() {
-  fs.readFile("tex.txt", "utf-8", (err, data) => {
+  fs.readFile("data/data.txt", "utf-8", (err, data) => {
     if (err) throw err;
     let d = data.split("\n");
     let str = d[0].split(",");
@@ -1590,7 +1590,14 @@ function opeBank(member, money, mode) {
     bankMoney += money;
     displayBank(member.name + "：share総額(" + pM + "円→" + bankMoney + "円)");
     addLog(
-      member.name + "：" + money + "円を操作。" + pM + "円→" + bankMoney + "円"
+      member.name +
+        "：SHARE " +
+        money +
+        "円を操作。" +
+        pM +
+        "円→" +
+        bankMoney +
+        "円"
     );
     return;
   }
