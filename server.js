@@ -1566,7 +1566,10 @@ function share(message) {
       opeBank(mb, Number(message.content), 0);
       message.delete();
       return;
-    } else if (message.content.match(/share \d{1,}$|share -\d{1,}$/) && mb !== undefined) {
+    } else if (
+      message.content.match(/share \d{1,}$|share -\d{1,}$/) &&
+      mb !== undefined
+    ) {
       const data = message.content.split(" ");
       opeBank(mb, Number(data[1]), 2);
       message.delete();
@@ -1587,8 +1590,7 @@ function opeBank(member, money, mode) {
     bankMoney += money;
     displayBank(member.name + "：share総額(" + pM + "円→" + bankMoney + "円)");
     addLog(
-      member.name + "：",
-      money + "円を操作。" + pM + "円→" + bankMoney + "円"
+      member.name + "：" + money + "円を操作。" + pM + "円→" + bankMoney + "円"
     );
     return;
   }
@@ -1596,19 +1598,35 @@ function opeBank(member, money, mode) {
     displayBank(
       member.name + "：" + money + "円を入金。　" + pG + "円→" + member.G + "円"
     );
-    addLog(member.name + "：" + money + "円を入金。" + pG + "円→" + member.G);
+    addLog(
+      member.name + "：" + money + "円を入金。" + pG + "円→" + member.G + "円"
+    );
   } else if (money < 0) {
     if (mode == 0) {
       displayBank(money * -1 + "円を出金。　" + pG + "円→" + member.G + "円");
       addLog(
-        member.name + "：" + money * -1 + "円を出金。" + pG + "円→" + member.G
+        member.name +
+          "：" +
+          money * -1 +
+          "円を出金。" +
+          pG +
+          "円→" +
+          member.G +
+          "円"
       );
     } else if (mode == 1) {
       displayBank(
         money * -1 + "円を支払いました。　" + pG + "円→" + member.G + "円"
       );
       addLog(
-        member.name + "：" + money * -1 + "円を出金。" + pG + "円→" + member.G
+        member.name +
+          "：" +
+          money * -1 +
+          "円を出金。" +
+          pG +
+          "円→" +
+          member.G +
+          "円"
       );
     }
   }
