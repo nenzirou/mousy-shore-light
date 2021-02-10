@@ -64,9 +64,22 @@ const holiday = [
 // share販売の商品と価格を設定します
 const product = [
   { name: "ドリンク", price: 100 },
+  { name: "ピュアの森", price: 50 },
   { name: "１００円ゾーン", price: 100 },
   { name: "１２０円ゾーン", price: 120 },
   { name: "２００円ゾーン", price: 200 }
+];
+// 効果音の設定
+const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
+const SE = [
+  { name: "q", URL: assets + "quiz.mp3?v=1612702206754" },
+  { name: "t", URL: assets + "true.mp3?v=1612702009667" },
+  { name: "f", URL: assets + "false.mp3?v=1612702156799" },
+  { name: "j", URL: assets + "jan.mp3?v=1612720207994" },
+  { name: "m", URL: assets + "moriage.mp3?v=1612720208944" },
+  { name: "h", URL: assets + "hakusyu.mp3?v=1612726876785" },
+  { name: "tm", URL: assets + "timer.mp3?v=1612727187137" },
+  { name: "s", URL: assets + "hazime.mp3?v=1612727188977" }
 ];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,6 +96,7 @@ const { VoiceText } = require("voice-text"); // 音声を読み上げてくれ�
 const voicetext = new VoiceText("d03x68wro08w7mz7"); // 音声を読み上げてくれるやつ
 const cron = require("node-cron"); // 定期的にプログラムを実行してくれるやつ
 const client = new discord.Client();
+const fs = require("fs");
 
 // チャンネルID記述
 const TEACHER_CHANNEL = "732522915832266834"; // #先生の部屋ID
@@ -98,6 +112,8 @@ const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージI
 const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
+const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
+const week = ["日", "月", "火", "水", "木", "金", "土"];
 let noticeList = []; // ユーザのお知らせを格納するリスト
 // 読み上げ関係
 const voiceTable = ["hikari", "haruka", "takeru", "santa", "show"]; // ボイスの種類 bearは聞き取りずらいので除外
@@ -121,326 +137,17 @@ const NGword = [
   "set",
   "len",
   "sel",
-  "weather"
+  "weather",
+  "poll"
 ];
-// 干支
-const zodiac = [
-  "子",
-  "丑",
-  "寅",
-  "卯",
-  "辰",
-  "巳",
-  "午",
-  "未",
-  "申",
-  "酉",
-  "戌",
-  "亥"
-];
-const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
-const week = ["日", "月", "火", "水", "木", "金", "土"];
-// 曜日のアイコン名
-const weekIcon = [
-  ":orange_circle:",
-  ":white_circle:",
-  ":red_circle:",
-  ":blue_circle:",
-  ":green_circle:",
-  ":yellow_circle:",
-  ":brown_circle:"
-];
-const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"];
+const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"]; //share販売の絵文字
 let bankMoney = 0; // shareの総額
 let bankText; // 預金のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
-let addName = [""];
-const greeting = [
-  [1, 1, "あけましておめでとうございます！"],
-  [2, 2, "おはようございます！今日は節分。"],
-  [2, 14, "ハッピーバレンタイン！"],
-  [3, 3, "おはようございます！今日はひな祭り。"],
-  [3, 14, "ハッピーホワイトデー！"],
-  [5, 9, "おはようございます！今日は母の日。"],
-  [6, 20, "おはようございます！今日は父の日。"],
-  [7, 7, "おはようございます！今日は七夕。"],
-  [10, 31, "ハッピーハロウィン！"],
-  [12, 24, "おはようございます！今日はクリスマスイブ。"],
-  [12, 25, "メリークリスマス！"]
-];
-const fs = require("fs");
-let anonyId = 0;
-let ranking = [];
+let addName = [""]; // 積み残しの人をぶち込むリスト
+let anonyId = 0; // 匿名掲示板の番号
+let ranking = []; // ゲームチャンネルのランキング
 load(); // データをロードする
-// botを呼んだ時の反応
-const res = [
-  "おぉ″ーん″！呼んだかにゃぁ″？",
-  "お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！",
-  "人気者は困っちゃうにゃぁ″～！",
-  "ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！",
-  "何か用かにゃぁ″？",
-  "お″ぉ～ん！ニャンちゅうでぇ～す″！！",
-  "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ",
-  "は？",
-  "いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！",
-  "な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！",
-  "んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
-  "み゛ぃとともだちになってくれるのかにゃあん！？",
-  "お゛に゛ぃさぁ゛ん！？",
-  "み゛ぃはま゛ぁだいぎでる゛に゛ゃあ゛あ゛あ゛あ゛ん゛！",
-  "ｶﾞｶﾞｶﾞ……ｼﾃ、ﾋﾟｰｶﾞｶﾞ…ｺｺｶﾗ…ﾀﾞｼ…ｶﾞｶﾞｶﾞｶﾞｶﾞｶﾞ",
-  "今日も素敵な一日だにゃ″ん！",
-  "お″ぉん″！！お″お″お″お″お″お″お″ぉ″ん！！！",
-  "次のゼミが待ち遠しいにゃぁ″！",
-  "お″ねぇ″さ″ん″がいつのまにか40代になってたにゃぁ″...",
-  "やっぱりたまごかけご飯はおいしいにゃぁん！！",
-  "真の卵賭けご飯を見せてやるにゃ″ん！",
-  "お″ね″え″さんの生態を学会に発表したにゃ″ん！！",
-  "ぃや″っぱりぃ″！？",
-  "FXで有り金全部溶かしたにゃ″ん″！！！",
-  "NHKの人ぉん、訴えないでくださぁ″い！"
-];
-// botのプレイしているゲーム
-const state = [
-  "お″ねぇ″さ″ん",
-  "PLAYING",
-  "あ″い″ちゅあ″ん",
-  "PLAYING",
-  "あなた",
-  "WATCHING",
-  "滅びた世界",
-  "LISTENING",
-  "㊙ビデオ",
-  "WATCHING",
-  "コンピューターおばあちゃん",
-  "LISTENING",
-  "BlockRoom",
-  "WATCHING",
-  "3Dプリンタ",
-  "PLAYING",
-  "カタン",
-  "PLAYING",
-  "湯沸し器",
-  "WATCHING",
-  "木島先生",
-  "WATCHING",
-  "卵かけご飯",
-  "WATCHING",
-  "深淵",
-  "WATCHING",
-  "君が代",
-  "LISTENING",
-  "毛髪",
-  "LISTENING",
-  "ニャンちゅう",
-  "PLAYING",
-  "天井",
-  "WATCHING",
-  "挫けた心",
-  "LISTENING",
-  "スマブラ",
-  "PLAYING",
-  "スプラトゥーン",
-  "PLAYING",
-  "NHK",
-  "WATCHING",
-  "お姉さんの生態",
-  "WATCHING",
-  "お姉さんのお風呂",
-  "WATCHING",
-  "デュフｗコポォｗ",
-  "WATCHING",
-  "FX",
-  "PLAYING",
-  "パチンコ",
-  "PLAYING",
-  "競馬",
-  "WATCHING",
-  "生命",
-  "LISTENING",
-  "ニャンちゅうといっしょ",
-  "WATCHING",
-  "おかあさんといっしょ",
-  "WATCHING",
-  "ニャンちゅう",
-  "WATCHING",
-  "夏目漱石",
-  "LISTENING",
-  "OculusQuest2",
-  "PLAYING",
-  "ViveCosmos",
-  "PLAYING",
-  "情熱大陸",
-  "WATCHING",
-  "プロフェッショナル",
-  "WATCHING",
-  "ラーメン",
-  "WATCHING",
-  "地上の星",
-  "LISTENING",
-  "バーチャルボーイ",
-  "PLAYING",
-  "PlayStation",
-  "PLAYING",
-  "PlayStation2",
-  "PLAYING",
-  "任天堂64",
-  "PLAYING",
-  "ゲームボーイ",
-  "PLAYING",
-  "ゲームキューブ",
-  "PLAYING",
-  "WiiFit",
-  "PLAYING",
-  "ファミコン",
-  "PLAYING",
-  "ゲーム&ウオッチ",
-  "PLAYING",
-  "おじゃる丸",
-  "WATCHING",
-  "しまじろう",
-  "WATCHING",
-  "アンパンマン",
-  "WATCHING",
-  "アカシックレコード",
-  "WATCHING",
-  "メイドインアビス",
-  "WATCHING",
-  "オリンピック",
-  "PLAYING",
-  "ベルリンの壁",
-  "LISTENING",
-  "縺薙ｓ縺ｫ縺｡縺ｯ縺薙ｓ縺ｰ繧薙ｏ",
-  "PLAYING",
-  "ノートルダム大聖堂",
-  "LISTENING",
-  "汚染された川",
-  "LISTENING",
-  "人生",
-  "LISTENING",
-  "仮想通貨",
-  "PLAYING",
-  "宝くじ",
-  "PLAYING",
-  "パチスロ",
-  "PLAYING",
-  "麻雀",
-  "PLAYING",
-  "24歳学生です。",
-  "PLAYING",
-  "玉ねぎ",
-  "PLAYING",
-  "タラバガニ",
-  "PLAYING",
-  "大根おろし",
-  "PLAYING",
-  "個人民事",
-  "LISTENING",
-  "この虫野郎",
-  "WATCHING",
-  "例のアレ",
-  "WATCHING",
-  "作ってワクワク",
-  "WATCHING",
-  "焼肉",
-  "PLAYING",
-  "パラパラ",
-  "WATCHING",
-  "ピクミン4",
-  "PLAYING",
-  "スプラトゥーン3",
-  "PLAYING",
-  "PS5",
-  "PLAYING",
-  "サツマイモ",
-  "PLAYING",
-  "塊魂",
-  "PLAYING",
-  "ポケモン",
-  "PLAYING",
-  "女の子",
-  "WATCHING",
-  "男の子",
-  "WATCHING",
-  "ヤクルト",
-  "PLAYING",
-  "吾輩は猫である",
-  "LISTENING",
-  "昆布茶",
-  "PLAYING",
-  "ミーは灰皿じゃないにゃ″ぁぁぁ！",
-  "PLAYING",
-  "春はあけぼの",
-  "PLAYING",
-  "夏は夜",
-  "PLAYING",
-  "秋は夕暮れ",
-  "PLAYING",
-  "冬はつとめて",
-  "PLAYING",
-  "天才とは1%のひらめきと99%の努力である",
-  "PLAYING",
-  "あきらめたら、そこで試合終了ですよ",
-  "LISTENING",
-  "豆",
-  "PLAYING",
-  "天才とは努力する凡才のことである",
-  "LISTENING",
-  "我思う、故に我有り",
-  "LISTENING",
-  "くるくるくるりん",
-  "PLAYING",
-  "ミ”ーは食用じゃないにゅあ”ぁん！！",
-  "PLAYING",
-  "でもん。",
-  "LISTENING",
-  "白い粉",
-  "PLAYING",
-  "有り金全部溶かした人",
-  "WATCHING",
-  "仮想空間",
-  "WATCHING",
-  "本能寺",
-  "LISTENING",
-  "TOEIC",
-  "PLAYING"
-];
-// 誰かがありがとうなど発言したときの返し
-const thanks = [
-  "サンキュでぇ～す！",
-  "ん優しい世界ぃ″！",
-  "ありがとうございまぁ″～す！",
-  "素敵だにゃ″ぁ！",
-  "にゃ″はは！",
-  "あったかいにゃ″ぁ",
-  "いぇ″～い″！！",
-  "んほぉ″～！！",
-  "社会貢献だにゃ″ぁ！",
-  "お″ね″ぇさ″んも喜んでるにゃ″ぁ！",
-  "あぁ″＾～感謝の言葉がぴょんぴょんするんにゃ″ぁ～",
-  "はぁ″い！",
-  "感謝感謝にゃ″ぁ～",
-  "気持ちがええんにゃ″ぁ～",
-  "やったぜ。",
-  "ありがとうは世界を救うにゃ″ぁ～",
-  "どゅ″ふ″ふ″、あったかいにゃ″～",
-  "おじさんもきっと喜んでるにゃ！"
-];
-// 誰かがごめんなさいなど発言したときの返し
-const apo = [
-  "そういうときもあるにゃぁ",
-  "つぎからがんばればいいにゃぁ",
-  "しかたないにゃぁ",
-  "ミーも一緒にあやまるにゃぁ",
-  "はい、ごめんなさ″～い",
-  "ここはミーに任せてはやく逃げるにゃ”！",
-  "正直に謝ればみんな許してくれるにゃぁ",
-  "きりかえていくにゃぁ",
-  "またつぎがあるにゃぁ",
-  "ここはミーに免じてゆるしてほしいにゃぁ”！",
-  "ボコルならミーをボコるにゃ！！",
-  "誰にでもしっぱいはあるにゃぁ"
-];
 
 // サーバーを作成する
 http
@@ -475,6 +182,7 @@ http
 client.on("ready", message => {
   console.log("Ready!");
   changeState(); // プレイ中のゲーム名を変更
+  // ゲームチャンネルのテキストメッセージを削除し、ランキングとディスプレイのテキストを読み込む
   client.channels.cache
     .get(GAME_CHANNEL)
     .messages.fetch({ after: "0", limit: 20 })
@@ -487,10 +195,11 @@ client.on("ready", message => {
         )
           message.delete();
       })
-    ); // ゲームチャンネルのテキストメッセージを削除し、ランキングとディスプレイのテキストを読み込む
+    );
+  //預金ディスプレイを読み込み、それ以外のメッセージを削除する
   client.channels.cache
     .get(SHARE_CHANNEL)
-    .messages.fetch({ after: "0", limit: 20 }) //預金ディスプレイを読み込み、それ以外のメッセージを削除する
+    .messages.fetch({ after: "0", limit: 20 })
     .then(messages => {
       messages.forEach(message => {
         if (message.id != BANK_TEXT && message.id != BINS_TEXT)
@@ -514,7 +223,7 @@ cron.schedule("0 * * * *", () => {
   changeState();
 });
 
-// ボイスチャンネルが更新されたときの処理
+// ボイスチャンネルが更新されたとき、参加者の人数によってBOTが接続したり切断したりする処理
 client.on("voiceStateUpdate", (oldMember, newMember) => {
   const conn = client.voice.connections.get(GUILD_ID);
   if (newMember.channel !== null && newMember.id != client.user.id) {
@@ -530,16 +239,32 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
 
 // ユーザがメッセージを投稿するとここが呼ばれる
 client.on("message", message => {
-  // ゲームチャンネルの処理
-  game(message);
   // 自分のコメントや他のbotに反応して無限ループしないようにする
   if (message.author.id == client.user.id || message.author.bot) return;
+  if (message.channel.id == GAME_CHANNEL) {
+    game(message); // ゲームチャンネルの処理
+    return; //ゲームチャンネルだった場合、処理を終える
+  }
   // 匿名チャンネルの処理
   anony(message);
+  if (message.channel.id == ANONY_CHANNEL) return; //匿名チャンネルだった場足、処理を終える
   // share販売チャンネルの処理
   share(message);
+  if (message.channel.id == SHARE_CHANNEL) return; //shareチャンネルだった場合、処理を終える
+  // 資料チャンネルの処理
+  if (message.channel.id == DOCUMENT_CHANNEL) {
+    speak(
+      message.member.displayName.substring(0, 2) +
+        "が資料をアップロードしました。",
+      voiceTable[Math.floor(Math.random() * voiceTable.length)]
+    );
+    return;
+  }
   // 特定のメッセージが含まれる文章は処理しない
-  if (message.content.match(/http|</)) return;
+  if (message.content.match(/http/)) return;
+  // サウンドエフェクト
+  const SEflag = soundEffect(message);
+  if (SEflag) return;
   // 各種反応
   react(message);
   // ゼミ開始の処理 @zemi
@@ -574,26 +299,13 @@ client.on("message", message => {
   maze(message);
   // デバッグ用 @db
   debug(message);
-  // 資料チャンネルの処理
-  if (message.channel.id == DOCUMENT_CHANNEL) {
-    speak(
-      message.member.displayName.substring(0, 2) +
-        "が資料をアップロードしました。",
-      voiceTable[Math.floor(Math.random() * voiceTable.length)]
-    );
-    return;
-  }
+
   // NGワードは読み上げない
   for (var i = 0; i < NGword.length; i++) {
     if (message.content.match(NGword[i])) return;
   }
   // ボイスチャンネルに接続しているとき、入力されたメッセージを流す voiceTable[message.member.id%voiceTable.length] 'hikari', 'haruka', 'takeru', 'santa', 'bear', 'show'
-  if (
-    message.channel.id != GAME_CHANNEL &&
-    message.channel.id != ANONY_CHANNEL &&
-    message.channel.id != SHARE_CHANNEL &&
-    client.voice.connections.get(GUILD_ID) !== undefined
-  ) {
+  if (client.voice.connections.get(GUILD_ID) !== undefined) {
     sayQueue.push(message);
     say();
   }
@@ -641,8 +353,12 @@ function notice(channel) {
   }
   text +=
     "\n今日は**" + formatTime([today[1], today[2], today[3]]) + "**です。\n";
-  if (zemiInfo.find(v => v.week === today[3]) !== undefined) {
-    //ゼミが今日の場合
+  let holidayName = judgeHoliday(today[1], today[2]);
+  //ゼミがある日の処理
+  if (
+    zemiInfo.find(v => v.week === today[3]) !== undefined &&
+    holidayName === "none"
+  ) {
     text +=
       "ゼミは今日の**" +
       zemiInfo[nextZemiInfoID].time +
@@ -653,10 +369,26 @@ function notice(channel) {
       text = text.replace(/<@/g, "");
     }
   } else {
-    //ゼミが今日はない場合
-    const nextZemiWeek = zemiInfo[nextZemiInfoID].week; //次のゼミの曜日
+    //ゼミがあるが祝日の場合の処理
+    if (
+      zemiInfo.find(v => v.week === today[3]) !== undefined &&
+      holidayName !== "none"
+    ) {
+      text += holidayName + "のため、今日のゼミはお休みです。\n";
+      nextZemiInfoID = getNextZemiInfoID(today[3] + 1);
+    }
+    // ゼミが無い日の処理
+    let nextZemiWeek = zemiInfo[nextZemiInfoID].week; //次のゼミの曜日
     let diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
-    const nextZemiDay = getTime(diff * 24);
+    let nextZemiDay = getTime(diff * 24); //次のゼミの日
+    holidayName = judgeHoliday(nextZemiDay[1], nextZemiDay[2]); //次のゼミの日が祝日かどうか判定
+    // 次のゼミの日が祝日だった場合の処理
+    if (holidayName !== "none") {
+      nextZemiWeek = zemiInfo[getNextZemiInfoID(nextZemiDay[3] + 1)].week; //次のゼミの曜日
+      diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
+      nextZemiDay = getTime(diff * 24); //次のゼミの日
+      text += holidayName + "のため、次の";
+    }
     text +=
       "ゼミは**" +
       formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
@@ -670,12 +402,12 @@ function notice(channel) {
     // 天気予報の追加
     text += res[1] + res[0] + "\n";
     text +=
-      ":timer: 卒論提出(` 2月10日`)まで**残り`" +
-      makeEmpty(remainingDays(today[1], today[2], 2, 10), 2, -1) +
-      "日`**\n";
-    text +=
       ":timer: 修論発表(` 2月12日`)まで**残り`" +
       makeEmpty(remainingDays(today[1], today[2], 2, 12), 2, -1) +
+      "日`**\n";
+    text +=
+      ":timer: 卒論発表(` 2月18日`)まで**残り`" +
+      makeEmpty(remainingDays(today[1], today[2], 2, 18), 2, -1) +
       "日`**\n";
     if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
     if (today[3] == 4 && today[2] <= 6)
@@ -702,6 +434,15 @@ function notice(channel) {
     save();
     sendMsg(channel, text);
   });
+}
+function soundEffect(message) {
+  const sound = SE.find(v => v.name === message.content);
+  if (sound === undefined) return false;
+  else {
+    client.voice.connections.get(GUILD_ID).play(sound.URL);
+    message.delete();
+  }
+  return true;
 }
 // メッセージに対する反応を行う
 function react(message) {
@@ -767,7 +508,7 @@ function react(message) {
 function zemi(message) {
   if (
     message.content.match(
-      /zemi|ゼミ始|ゼミです|ゼミやりま|ぜみっす|ゼミっす|ゼミ。|ぜみ。|ゼミ開始|ぜみ開始/
+      /^@?zemi$|ゼミ始|ゼミです|ゼミやりま|ぜみっす|ゼミっす|ゼミ。|ぜみ。|ゼミ開始|ぜみ開始/
     )
   ) {
     let text =
@@ -785,7 +526,7 @@ function zemi(message) {
       voiceTable[Math.floor(Math.random() * voiceTable.length)]
     );
     if (message.channel.id == BOT_CHANNEL) {
-      sendMsg(BOT_CHANNEL, "http" + text);
+      sendMsg(BOT_CHANNEL, text);
     } else {
       text = "@" + text;
       sendMsg(NOTICE_CHANNEL, text);
@@ -799,7 +540,7 @@ function zemi(message) {
 }
 // ゼミ順を前に移動する for
 function back(message) {
-  if (message.content.match(/back/)) {
+  if (message.content.match(/^back$/)) {
     opeZemi(-1);
     save();
     sendReply(
@@ -814,7 +555,7 @@ function back(message) {
 }
 // ゼミ順を後ろに移動する back
 function forward(message) {
-  if (message.content.match(/for/)) {
+  if (message.content.match(/^for$/)) {
     opeZemi(1);
     save();
     sendReply(
@@ -829,7 +570,7 @@ function forward(message) {
 }
 // ゼミ順を確認する next
 function next(message) {
-  if (message.content.match(/next/)) {
+  if (message.content.match(/^next$/)) {
     let text = returnOrder();
     sendMsg(message.channel.id, text);
     message.delete();
@@ -838,8 +579,8 @@ function next(message) {
 }
 // 積み残しの人を追加する add
 function add(message) {
-  if (message.content.match(/add/)) {
-    const str = message.content.split(" "); //命令を分けて配列に入れる
+  if (message.content.match(/^add/)) {
+    const str = splitSpace(message.content); //命令を分けて配列に入れる
     //名前を指定してリストに追加する場合
     if (str.length > 1) {
       for (let i = 1; i < str.length; i++) {
@@ -861,7 +602,7 @@ function add(message) {
 }
 // 積み残しリストを削除する take
 function take(message) {
-  if (message.content.match(/take/)) {
+  if (message.content.match(/^take$/)) {
     clearAddName();
     let text = "積み残しリストを削除しました。";
     save();
@@ -872,7 +613,7 @@ function take(message) {
 }
 // メッセージを送った人のいるボイスチャンネルに接続する join
 function join(message) {
-  if (message.content.match(/join/)) {
+  if (message.content.match(/^join$/)) {
     let ch = message.member.voice.channel;
     if (ch == null)
       sendMsg(
@@ -887,7 +628,7 @@ function join(message) {
 }
 // ボイスチャンネルから切断する leave
 function leave(message) {
-  if (message.content.match(/leave/)) {
+  if (message.content.match(/^leave$/)) {
     if (client.voice.connections.get(GUILD_ID) == null)
       sendMsg(message.channel.id, "botがボイスチャンネルに入室していません。");
     else disconnect();
@@ -898,8 +639,8 @@ function leave(message) {
 }
 // 読み上げに教育する teach
 function teachVoice(message) {
-  if (message.content.match(/teach/)) {
-    var str = message.content.split(" ");
+  if (message.content.match(/^teach/)) {
+    const str = splitSpace(message.content);
     if (str.length == 3) {
       teach.push(str[1]);
       teach.push(str[2]);
@@ -917,8 +658,8 @@ function teachVoice(message) {
 }
 // 教育を削除する clear
 function clearVoice(message) {
-  if (message.content.match(/clear/)) {
-    var str = message.content.split(" ");
+  if (message.content.match(/^clear/)) {
+    const str = splitSpace(message.content);
     if (str.length == 2) {
       var loop = teach.length;
       for (var i = 0; i < loop; i += 2) {
@@ -938,15 +679,11 @@ function clearVoice(message) {
 }
 // カスタムお知らせを追加する　set
 function setNoticeList(message) {
-  if (message.content.match(/set/)) {
-    if (message.content.match(/,/)) {
-      sendMsg(message.channel.id, "「,」の文字は使えません。");
-      return;
-    }
-    var str = message.content.split(" ");
+  if (message.content.match(/^set/)) {
+    const str = splitSpace(message.content.replace(/,/g, ""));
     if (str.length == 4) {
-      let time = getTime(0);
-      let remain = remainingDays(time[1], time[2], str[2], str[3]);
+      const time = getTime(0);
+      const remain = remainingDays(time[1], time[2], str[2], str[3]);
       noticeList.push(message.member.displayName.substr(0, 2) + "：" + str[1]);
       noticeList.push(remain);
       sendMsg(
@@ -972,12 +709,12 @@ function setNoticeList(message) {
 }
 // 文字数を計測する len
 function len(message) {
-  if (message.content.match(/len/)) {
-    var str = message.content.split(" ");
-    var sum = str.length - 2;
-    var space = 0;
-    var line = 0;
-    for (var i = 1; i < str.length; i++) {
+  if (message.content.match(/^len/)) {
+    let str = message.content.split(" ");
+    let sum = str.length - 2;
+    let space = 0;
+    let line = 0;
+    for (let i = 1; i < str.length; i++) {
       sum += str[i].length;
       space += (str[i].match(/　/g) || []).length;
       line += (str[i].match(/\n/g) || []).length;
@@ -997,12 +734,12 @@ function len(message) {
 }
 // ランダムセレクト sel
 function sel(message) {
-  if (message.content.match(/sel/)) {
-    let str = message.content.split(" ");
+  if (message.content.match(/^sel/)) {
+    const str = splitSpace(message.content);
     let sN = Number(str[1]);
     if (str[1] == null) sN = 1;
-    let list = member.filter(v => v.zOrder !== -1); // メンバーリストを複製する
-    let loop = list.length - sN; // リストの長さ-指定回数分メンバーリストからランダムに削除する
+    const list = member.filter(v => v.zOrder !== -1); // メンバーリストを複製する
+    const loop = list.length - sN; // リストの長さ-指定回数分メンバーリストからランダムに削除する
     for (let i = 0; i < loop; i++) {
       list.splice(parseInt(Math.random() * list.length), 1);
     }
@@ -1014,13 +751,17 @@ function sel(message) {
       message.channel.id,
       "選ばれたのは" + returnName(memberList) + "でした。"
     );
+    speak(
+      returnName(memberList),
+      voiceTable[Math.floor(Math.random() * voiceTable.length)]
+    );
     message.delete();
     return;
   }
 }
 //天気予報表示
 function weather(message) {
-  if (message.content.match(/weather/)) {
+  if (message.content.match(/^weather$/)) {
     const req = unirest(
       "GET",
       "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd"
@@ -1066,7 +807,7 @@ function weather(message) {
 }
 // デバッグ用 @db
 function debug(message) {
-  if (message.content.match(/@db/)) {
+  if (message.content.match(/^@db$/)) {
     notice(message.channel.id);
     message.delete();
     if (message.channel.id !== BOT_CHANNEL) {
@@ -1106,9 +847,8 @@ function disconnect() {
 function judgeNoticeList() {
   var loop = noticeList.length;
   for (var i = 0; i < loop; i += 2) {
-    if (noticeList[i + 1] == 0) noticeList.splice(i, 2);
+    if (noticeList[i + 1] <= 0) noticeList.splice(i, 2);
   }
-  console.log(noticeList);
 }
 // 通常の発表者と積み残しの発表者名を結合して返す
 function combiName(zemi, add) {
@@ -1164,12 +904,20 @@ function returnOrder() {
       zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
     );
     if (i == 0) {
-      if (today[3] == nextZemi)
-        nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek + 1)].week; //次のゼミの曜日
-      diff = diffWeek(today[3], nextZemi);
+      if (tmpWeek == nextZemi) {
+        nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek + 1)].week; //次のゼミの日が今日だった場合、次のゼミを探す
+        diff = diffWeek(tmpWeek, nextZemi); // 今日と次のゼミの差
+      }
     }
     sum += diff;
-    const next = getTime(sum * 24);
+    let next = getTime(sum * 24);
+    // 祝日の処理
+    const holidayName = judgeHoliday(next[1], next[2]);
+    if (holidayName !== "none") {
+      i--;
+      tmpWeek = next[3];
+      continue;
+    }
     tmpWeek = next[3];
     const remain = remainingDays(today[1], today[2], next[1], next[2]);
     if (remain == 1) dayList.push("`  明日`：");
@@ -1218,7 +966,9 @@ function speak(text, speaker) {
     .fetchBuffer(text, { speaker: speaker, format: "ogg" })
     .then(buffer => {
       writeFileSync("data/voice.ogg", buffer);
-      var dispatcher = client.voice.connections.get(GUILD_ID).play("data/voice.ogg");
+      var dispatcher = client.voice.connections
+        .get(GUILD_ID)
+        .play("data/voice.ogg");
       dispatcher.once("finish", () => {
         sayFlag = false;
         say();
@@ -1362,8 +1112,9 @@ function displayBank(str) {
 // ステータスをランダムに変更する
 function changeState() {
   let p = Math.floor(Math.random() * (state.length / 2));
+  const type = ["PLAYING", "LISTENING", "WATCHING"];
   client.user.setPresence({
-    activity: { name: state[2 * p], type: state[2 * p + 1] }
+    activity: { name: state[2 * p].name, type: type[state[2 * p].state] }
   });
 }
 // テキストを指定した文字列で囲んだものを生成する
@@ -1395,6 +1146,10 @@ function makeZero(str, n) {
   }
   return str;
 }
+// 全角スペースと半角スペースの区別なしに文字列を分割する
+function splitSpace(str) {
+  return str.replace(/　/g, " ").split(" ");
+}
 // 西暦,月,日,曜日,時間,分,和歴を日本時間になおして返す
 function getTime(compensate) {
   const now = new Date();
@@ -1408,6 +1163,15 @@ function getTime(compensate) {
   let era = year - 2018;
   let output = [year, month + 1, day, todayWeek, hour, minutes, era];
   return output;
+}
+// 指定した日にちが祝日であるかどうか判定する
+function judgeHoliday(month, day) {
+  for (let i = 0; i < holiday.length; i++) {
+    if (holiday[i].month == month && holiday[i].day == day) {
+      return holiday[i].name;
+    }
+  }
+  return "none";
 }
 // 指定した日にち(month1,day1)から指定した日にち(month2,day2)までの残りの日数を返す
 function remainingDays(month1, day1, month2, day2) {
@@ -1562,15 +1326,15 @@ function anony(message) {
 function share(message) {
   if (message.channel.id == SHARE_CHANNEL) {
     const mb = member.find(v => v.id === message.member.id);
-    if (message.content.match(/^\d{1,}$|^-\d{1,}$/) && mb !== undefined) {
+    if (message.content.match(/^-?\d{1,}$/) && mb !== undefined) {
       opeBank(mb, Number(message.content), 0);
       message.delete();
       return;
     } else if (
-      message.content.match(/share \d{1,}$|share -\d{1,}$/) &&
+      message.content.match(/^share[　 ]-?\d{1,}$/) &&
       mb !== undefined
     ) {
-      const data = message.content.split(" ");
+      const data = splitSpace(message.content);
       opeBank(mb, Number(data[1]), 2);
       message.delete();
     } else {
@@ -1583,58 +1347,36 @@ function share(message) {
 function opeBank(member, money, mode) {
   const pG = member.G;
   const pM = bankMoney;
+  const mN = member.name + "：";
   if (mode != 2) member.G += money;
   if (mode == 0) bankMoney += money;
   else if (mode == 2) {
     // share金額のみを操作する場合
     bankMoney += money;
-    displayBank(member.name + "：share総額(" + pM + "円→" + bankMoney + "円)");
+    displayBank(mN + "share総額(" + pM + "円→" + bankMoney + "円)");
     addLog(
-      member.name +
-        "：SHARE " +
-        money +
-        "円を操作。" +
-        pM +
-        "円→" +
-        bankMoney +
-        "円"
+      mN + "SHARE " + money + "円を操作。" + pM + "円→" + bankMoney + "円"
     );
-    return;
   }
-  if (money > 0) {
-    displayBank(
-      member.name + "：" + money + "円を入金。　" + pG + "円→" + member.G + "円"
-    );
-    addLog(
-      member.name + "：" + money + "円を入金。" + pG + "円→" + member.G + "円"
-    );
-  } else if (money < 0) {
-    if (mode == 0) {
-      displayBank(money * -1 + "円を出金。　" + pG + "円→" + member.G + "円");
-      addLog(
-        member.name +
-          "：" +
-          money * -1 +
-          "円を出金。" +
-          pG +
-          "円→" +
-          member.G +
-          "円"
-      );
-    } else if (mode == 1) {
-      displayBank(
-        money * -1 + "円を支払いました。　" + pG + "円→" + member.G + "円"
-      );
-      addLog(
-        member.name +
-          "：" +
-          money * -1 +
-          "円を出金。" +
-          pG +
-          "円→" +
-          member.G +
-          "円"
-      );
+  // 入金操作
+  if (mode != 2) {
+    if (money > 0) {
+      displayBank(mN + money + "円を入金。　" + pG + "円→" + member.G + "円");
+      addLog(mN + money + "円を入金。" + pG + "円→" + member.G + "円");
+    } else if (money < 0) {
+      // 出金操作
+      if (mode == 0) {
+        displayBank(
+          mN + money * -1 + "円を出金。　" + pG + "円→" + member.G + "円"
+        );
+        addLog(mN + money * -1 + "円を出金。" + pG + "円→" + member.G + "円");
+      } else if (mode == 1) {
+        // 支払い操作
+        displayBank(
+          money * -1 + "円を支払いました。　" + pG + "円→" + member.G + "円"
+        );
+        addLog(mN + money * -1 + "円を出金。" + pG + "円→" + member.G + "円");
+      }
     }
   }
   saveBank();
@@ -1756,12 +1498,12 @@ const objectName = [
   "安西先生",
   "NHK",
   "もう一人のミー",
-  "ピクミン"
+  "ピクミン",
+  "地球の皆"
 ];
 const objectMinusVerb = [
   "が降ってきた",
   "が目に入った",
-  "を踏んだ",
   "とぶつかった",
   "に背後から襲われた",
   "に殴られた",
@@ -1770,7 +1512,8 @@ const objectMinusVerb = [
   "で転んだ",
   "に激突した",
   "にビンタされた",
-  "に潰された"
+  "に潰された",
+  "と核融合した"
 ];
 const objectPlusVerb = [
   "に癒された",
@@ -1869,6 +1612,7 @@ function game(message) {
         } else {
           nyan.stopCnt--;
           flavorText = "残り" + nyan.stopCnt + "ターン時を止めるにゃ！";
+          if (nyan.stopCnt == 0) flavorText = "†そして時は動き出す†";
         }
       }
       display(H, W, field, message); // フィールドをGAME_CHANNELに描画
@@ -2100,6 +1844,7 @@ function warp(x, y) {
       }
     }
   }
+  return [x, y]; //ほかにワープマスが無い場合、ワープしない
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2217,3 +1962,182 @@ function dijkstra(H, W, field, sx, sy, gx, gy) {
   }
   return gst.st;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                 固定変数集                                                                                                  　 //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 干支
+const zodiac = [
+  "子",
+  "丑",
+  "寅",
+  "卯",
+  "辰",
+  "巳",
+  "午",
+  "未",
+  "申",
+  "酉",
+  "戌",
+  "亥"
+];
+// 指定した日付の挨拶が変化する
+const greeting = [
+  [1, 1, "あけましておめでとうございます！"],
+  [2, 3, "おはようございます！今日は節分。"],
+  [2, 14, "ハッピーバレンタイン！"],
+  [3, 3, "おはようございます！今日はひな祭り。"],
+  [3, 14, "ハッピーホワイトデー！"],
+  [5, 9, "おはようございます！今日は母の日。"],
+  [6, 20, "おはようございます！今日は父の日。"],
+  [7, 7, "おはようございます！今日は七夕。"],
+  [10, 31, "ハッピーハロウィン！"],
+  [12, 24, "おはようございます！今日はクリスマスイブ。"],
+  [12, 25, "メリークリスマス！"]
+];
+// 誰かがありがとうなど発言したときの返し
+const thanks = [
+  "サンキュでぇ～す！",
+  "ん優しい世界ぃ″！",
+  "ありがとうございまぁ″～す！",
+  "素敵だにゃ″ぁ！",
+  "にゃ″はは！",
+  "あったかいにゃ″ぁ",
+  "いぇ″～い″！！",
+  "んほぉ″～！！",
+  "社会貢献だにゃ″ぁ！",
+  "お″ね″ぇさ″んも喜んでるにゃ″ぁ！",
+  "あぁ″＾～感謝の言葉がぴょんぴょんするんにゃ″ぁ～",
+  "はぁ″い！",
+  "感謝感謝にゃ″ぁ～",
+  "気持ちがええんにゃ″ぁ～",
+  "やったぜ。",
+  "ありがとうは世界を救うにゃ″ぁ～",
+  "どゅ″ふ″ふ″、あったかいにゃ″～",
+  "おじさんもきっと喜んでるにゃ！"
+];
+// 誰かがごめんなさいなど発言したときの返し
+const apo = [
+  "そういうときもあるにゃぁ",
+  "つぎからがんばればいいにゃぁ",
+  "しかたないにゃぁ",
+  "ミーも一緒にあやまるにゃぁ",
+  "はい、ごめんなさ″～い",
+  "ここはミーに任せてはやく逃げるにゃ”！",
+  "正直に謝ればみんな許してくれるにゃぁ",
+  "きりかえていくにゃぁ",
+  "またつぎがあるにゃぁ",
+  "ここはミーに免じてゆるしてほしいにゃぁ”！",
+  "ボコルならミーをボコるにゃ！！",
+  "誰にでもしっぱいはあるにゃぁ"
+];
+// botを呼んだ時の反応
+const res = [
+  "おぉ″ーん″！呼んだかにゃぁ″？",
+  "お″ねぇ″さ″ん″に呼ばれた気がしたにゃぁ！！",
+  "人気者は困っちゃうにゃぁ″～！",
+  "ミ″ーを呼ぶ声が聞こえてきた気がするにゃぁ″！",
+  "何か用かにゃぁ″？",
+  "お″ぉ～ん！ニャンちゅうでぇ～す″！！",
+  "これからお″ねぇ″さんとデェートに行ってくるにゃぁ″！ドュフフフ",
+  "は？",
+  "いぇ″～い！ニャンちゅうは今日も元気いっぱいにゃぁ″～！",
+  "な″～んということでしょう！ニャンちゅうは人気者でぇ″～す！",
+  "んにゃ″ぁ″ぁ″ぁ″ぁ″ぁ″ぁ",
+  "み゛ぃとともだちになってくれるのかにゃあん！？",
+  "お゛に゛ぃさぁ゛ん！？",
+  "み゛ぃはま゛ぁだいぎでる゛に゛ゃあ゛あ゛あ゛あ゛ん゛！",
+  "ｶﾞｶﾞｶﾞ……ｼﾃ、ﾋﾟｰｶﾞｶﾞ…ｺｺｶﾗ…ﾀﾞｼ…ｶﾞｶﾞｶﾞｶﾞｶﾞｶﾞ",
+  "今日も素敵な一日だにゃ″ん！",
+  "お″ぉん″！！お″お″お″お″お″お″お″ぉ″ん！！！",
+  "次のゼミが待ち遠しいにゃぁ″！",
+  "お″ねぇ″さ″ん″がいつのまにか40代になってたにゃぁ″...",
+  "やっぱりたまごかけご飯はおいしいにゃぁん！！",
+  "真の卵賭けご飯を見せてやるにゃ″ん！",
+  "お″ね″え″さんの生態を学会に発表したにゃ″ん！！",
+  "ぃや″っぱりぃ″！？",
+  "FXで有り金全部溶かしたにゃ″ん″！！！",
+  "NHKの人ぉん、訴えないでくださぁ″い！"
+];
+// botのプレイしているゲーム 0→PLAYING「～をプレイ中」,1→LISTENING「～を再生中」,2→WATCHING「～を視聴中」
+const state = [
+  { name: "人生", state: 0 },
+  { name: "白い粉", state: 0 },
+  { name: "草", state: 0 },
+  { name: "チョコ", state: 0 },
+  { name: "葉っぱ", state: 0 },
+  { name: "タバコ", state: 0 },
+  { name: "パチンコ", state: 0 },
+  { name: "ギャンブル", state: 0 },
+  { name: "カジノ", state: 0 },
+  { name: "競馬", state: 0 },
+  { name: "闇営業", state: 0 },
+  { name: "ボランティア", state: 0 },
+  { name: "清掃活動", state: 0 },
+  { name: "脱炭素", state: 0 },
+  { name: "トミカ", state: 0 },
+  { name: "VR", state: 0 },
+  { name: "スプラトゥーン3", state: 0 },
+  { name: "パチスロ", state: 0 },
+  { name: "けん玉", state: 0 },
+  { name: "花札", state: 0 },
+  { name: "カタン", state: 0 },
+  { name: "プレイ中", state: 0 },
+  { name: "お″ねぇ″さ″ん", state: 0 },
+  { name: "遘√?縺輔￥縺励ｃ縺ｮ縺ゅ＆縺ｮ蜆ｪ縺ｧ縺", state: 0 },
+  { name: "縺薙ｓ縺ｫ縺｡縺ｯ譛ｪ譚･縺ｮ譛ｨ蟲ｶ遐如", state: 0 },
+  { name: "", state: 0 },
+  { name: "", state: 0 },
+  { name: "本能寺", state: 1 },
+  { name: "ノートルダム大聖堂", state: 1 },
+  { name: "自然", state: 1 },
+  { name: "資源", state: 1 },
+  { name: "汚れた川", state: 1 },
+  { name: "汚染区域", state: 1 },
+  { name: "失われた名誉", state: 1 },
+  { name: "コンピューターおばあちゃん", state: 1 },
+  { name: "再生中", state: 1 },
+  { name: "政権", state: 1 },
+  { name: "オゾンホール", state: 1 },
+  { name: "破壊された森林", state: 1 },
+  { name: "砂漠", state: 1 },
+  { name: "おぉ″ん″", state: 1 },
+  { name: "でもん。", state: 1 },
+  { name: "春はあけぼの", state: 1 },
+  { name: "冬はつとめて", state: 1 },
+  { name: "秋はゆうぐれ", state: 1 },
+  { name: "山一証券", state: 1 },
+  { name: "福島原発", state: 1 },
+  { name: "", state: 1 },
+  { name: "", state: 1 },
+  { name: "", state: 1 },
+  { name: "", state: 1 },
+  { name: "", state: 1 },
+  { name: "ニャンちゅうと一緒", state: 2 },
+  { name: "お母さんと一緒", state: 2 },
+  { name: "木島先生", state: 2 },
+  { name: "仮想空間", state: 2 },
+  { name: "アンパンマン", state: 2 },
+  { name: "ピタゴラスイッチ", state: 2 },
+  { name: "テレビターズ", state: 2 },
+  { name: "ハッピーツリーフレンズ", state: 2 },
+  { name: "しまじろうのわお！", state: 2 },
+  { name: "ミッ〇キーマウス", state: 2 },
+  { name: "帰還者トーマス", state: 2 },
+  { name: "プーさん", state: 2 },
+  { name: "たまねぎおじさん", state: 2 },
+  { name: "視聴中", state: 2 },
+  { name: "動物園", state: 2 },
+  { name: "水族館", state: 2 },
+  { name: "深淵", state: 2 },
+  { name: "地球温暖化", state: 2 },
+  { name: "海面上昇", state: 2 },
+  { name: "お姉さんのお風呂", state: 2 },
+  { name: "黒電話", state: 2 },
+  { name: "たまごかけご飯", state: 2 },
+  { name: "モハベド・アブドゥル", state: 2 },
+  { name: "", state: 2 },
+  { name: "", state: 2 },
+  { name: "", state: 2 },
+  { name: "", state: 2 }
+];
