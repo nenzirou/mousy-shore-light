@@ -1,8 +1,20 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//木島研究室のゼミBOTの中身です。
-//Glitchという仮想サーバーを作れるサイト(つまり、今プログラムを表示しているサイト)でjavascriptを動かしています。
-//以下、ゼミメンバーが変わったりしたときに更新が必要なデータです。
+//                                                                  命令表
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// zemi→#お知らせに今日の発表者と司会者、@everyoneを送信。ゼミ順を一つ先へ。
+// for→ゼミ順を一つ先へ。
+// back→ゼミ順を一つ前へ。
+// next→ゼミ順を表示。
+// add→積み残しリストへ追加。[add][add 浅野][add 浅野 稲守]
+// take→積み残しリスト削除。
+// join→BOTがボイスチャンネルに接続。
+// leave→BOTがボイスチャンネルから切断。
+// teach→BOTの読み上げ教育。[teach 浅野 なめこ]→浅野をなめこと読み上げる
+// clear→BOTの読み上げ教育削除。[clear 浅野]→浅野をなめこと読み上げなくなる
+// set→お知らせに文章を追加。[set 書類は9月17日までに提出してください。 9 17]→9月17日まで毎朝のお知らせに文章を追加
+// len→文章の文字数をカウント。[len おはようございます。]
+// sel→ゼミ順から名前をランダムに選んで出力。[sel][sel 5]
+// weather→天気情報を出力。
 
 // ディスコードに入っている人の一覧です。
 // idにはディスコードのメンバーリストを右クリック→「IDをコピー」でコピーしたものを入れてください。
@@ -72,14 +84,14 @@ const product = [
 // 効果音の設定
 const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
 const SE = [
-  { name: "q", URL: assets + "quiz.mp3?v=1612702206754" },
-  { name: "t", URL: assets + "true.mp3?v=1612702009667" },
-  { name: "f", URL: assets + "false.mp3?v=1612702156799" },
-  { name: "j", URL: assets + "jan.mp3?v=1612720207994" },
-  { name: "m", URL: assets + "moriage.mp3?v=1612720208944" },
-  { name: "h", URL: assets + "hakusyu.mp3?v=1612726876785" },
-  { name: "tm", URL: assets + "timer.mp3?v=1612727187137" },
-  { name: "s", URL: assets + "hazime.mp3?v=1612727188977" }
+  { URL: assets + "quiz.mp3?v=1612702206754", icon: ":regional_indicator_q:" },
+  { URL: assets + "true.mp3?v=1612702009667", icon: ":o:" },
+  { URL: assets + "false.mp3?v=1612702156799", icon: ":x:" },
+  { URL: assets + "jan.mp3?v=1612720207994", icon: ":100:" },
+  { URL: assets + "moriage.mp3?v=1612720208944", icon: ":partying_face:" },
+  { URL: assets + "hakusyu.mp3?v=1612726876785", icon: ":clap:" },
+  { URL: assets + "timer.mp3?v=1612727187137", icon: ":timer:" },
+  { URL: assets + "hazime.mp3?v=1612727188977", icon: ":alarm_clock:" }
 ];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +123,7 @@ const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
 const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
+const SE_TEXT = "809086917005279243"; // ワンタッチ効果音のメッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
 const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
 const week = ["日", "月", "火", "水", "木", "金", "土"];
@@ -182,29 +195,24 @@ http
 client.on("ready", message => {
   console.log("Ready!");
   changeState(); // プレイ中のゲーム名を変更
-  // ゲームチャンネルのテキストメッセージを削除し、ランキングとディスプレイのテキストを読み込む
+  // ゲームチャンネルのテキストを読み込み、説明とディスプレイとランキング以外を削除
   client.channels.cache
     .get(GAME_CHANNEL)
     .messages.fetch({ after: "0", limit: 20 })
     .then(messages =>
-      messages.forEach(message => {
-        if (
-          message.id != INST_TEXT &&
-          message.id != RANK_TEXT &&
-          message.id != DISP_TEXT
-        )
-          message.delete();
+      messages.forEach(m => {
+        if (m.id != INST_TEXT && m.id != RANK_TEXT && m.id != DISP_TEXT)
+          m.delete();
       })
     );
-  //預金ディスプレイを読み込み、それ以外のメッセージを削除する
+  //share販売チャンネルを読み込み、預金と説明以外のメッセージを削除する
   client.channels.cache
     .get(SHARE_CHANNEL)
     .messages.fetch({ after: "0", limit: 20 })
     .then(messages => {
-      messages.forEach(message => {
-        if (message.id != BANK_TEXT && message.id != BINS_TEXT)
-          message.delete();
-        else bankText = message;
+      messages.forEach(m => {
+        if (m.id != BANK_TEXT && m.id != BINS_TEXT) m.delete();
+        else bankText = m;
         loadBank(); //預金データをロードする
       });
     });
@@ -215,7 +223,12 @@ cron.schedule("30 5 22 * * *", () => {
   notice(NOTICE_CHANNEL);
 });
 // ゼミ終了後にゼミ順を定時連絡する
-cron.schedule("0 10 * * 1,2,4", () => {
+let scheduleOrder = "0 10 * * ";
+for (let i = 0; i < zemiInfo.length; i++) {
+  scheduleOrder += zemiInfo[i].week;
+  if (i != zemiInfo.length - 1) scheduleOrder += ",";
+}
+cron.schedule(scheduleOrder, () => {
   sendMsg(NOTICE_CHANNEL, returnOrder());
 });
 // ステータスの変更を定時に行う
@@ -262,9 +275,6 @@ client.on("message", message => {
   }
   // 特定のメッセージが含まれる文章は処理しない
   if (message.content.match(/http/)) return;
-  // サウンドエフェクト
-  const SEflag = soundEffect(message);
-  if (SEflag) return;
   // 各種反応
   react(message);
   // ゼミ開始の処理 @zemi
@@ -434,15 +444,6 @@ function notice(channel) {
     save();
     sendMsg(channel, text);
   });
-}
-function soundEffect(message) {
-  const sound = SE.find(v => v.name === message.content);
-  if (sound === undefined) return false;
-  else {
-    client.voice.connections.get(GUILD_ID).play(sound.URL);
-    message.delete();
-  }
-  return true;
 }
 // メッセージに対する反応を行う
 function react(message) {
@@ -680,19 +681,20 @@ function clearVoice(message) {
 // カスタムお知らせを追加する　set
 function setNoticeList(message) {
   if (message.content.match(/^set/)) {
-    const str = splitSpace(message.content.replace(/,/g, ""));
+    const str = splitSpace(message.content.replace(/,|\n/g, ""));
     if (str.length == 4) {
       const time = getTime(0);
       const remain = remainingDays(time[1], time[2], str[2], str[3]);
-      noticeList.push(message.member.displayName.substr(0, 2) + "：" + str[1]);
+      const name = member.find(v => v.id === message.member.id);
+      let text = message.member.displayName.substring(0, 2) + "：" + str[1];
+      if (name !== undefined) text = name.name + "：" + text;
+      noticeList.push(text);
       noticeList.push(remain);
       sendMsg(
         message.channel.id,
         "「" +
-          message.member.displayName.substr(0, 2) +
-          "：" +
-          str[1] +
-          "」を毎朝のお知らせに追加しました。残り" +
+          text +
+          "」を毎朝のお知らせに追加しました。\n残り" +
           remain +
           "日間表示されます。"
       );
@@ -700,7 +702,7 @@ function setNoticeList(message) {
     } else {
       sendMsg(
         message.channel.id,
-        "「set お知らせに追加した文章 月 日」のように入力してください。"
+        "「set お知らせに追加したい文章 月 日」のように入力してください。"
       );
     }
     message.delete();
