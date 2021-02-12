@@ -13,7 +13,7 @@
 // clear→BOTの読み上げ教育削除。[clear 浅野]→浅野をなめこと読み上げなくなる
 // set→お知らせに文章を追加。[set 書類は9月17日までに提出してください。 9 17]→9月17日まで毎朝のお知らせに文章を追加
 // len→文章の文字数をカウント。[len おはようございます。]
-// sel→ゼミ順から名前をランダムに選んで出力。[sel][sel 5]
+// sel→ゼミ順から名前をランダムに選んで出力。[sel][sel 数値]
 // weather→天気情報を出力。
 
 // ディスコードに入っている人の一覧です。
@@ -32,6 +32,7 @@ const member = [
   { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
   { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
   { id: "708191971424075797", name: "南部", zOrder: 4, G: 0, grade: 2 },
+  { id: "807689067663327274", name: "おじ", zOrder: -1, G: 0, grade: 2 },
   { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
   { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
   { id: "337439445269741568", name: "高岡", zOrder: 4, G: 0, grade: 1 },
@@ -84,14 +85,24 @@ const product = [
 // 効果音の設定
 const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
 const SE = [
-  { URL: assets + "quiz.mp3?v=1612702206754", icon: ":regional_indicator_q:" },
-  { URL: assets + "true.mp3?v=1612702009667", icon: ":o:" },
-  { URL: assets + "false.mp3?v=1612702156799", icon: ":x:" },
-  { URL: assets + "jan.mp3?v=1612720207994", icon: ":100:" },
-  { URL: assets + "moriage.mp3?v=1612720208944", icon: ":partying_face:" },
-  { URL: assets + "hakusyu.mp3?v=1612726876785", icon: ":clap:" },
-  { URL: assets + "timer.mp3?v=1612727187137", icon: ":timer:" },
-  { URL: assets + "hazime.mp3?v=1612727188977", icon: ":alarm_clock:" }
+  { URL: assets + "quiz.mp3?v=1612702206754", icon: "🇶" },
+  { URL: assets + "timer.mp3?v=1612727187137", icon: "⏲️" },
+  { URL: assets + "jan.mp3?v=1612720207994", icon: "💯" },
+  { URL: assets + "true.mp3?v=1612702009667", icon: "⭕" },
+  { URL: assets + "false.mp3?v=1612702156799", icon: "❌" },
+  { URL: assets + "moriage.mp3?v=1612720208944", icon: "🎉" },
+  { URL: assets + "hakusyu.mp3?v=1612726876785", icon: "👏" },
+  { URL: assets + "hazime.mp3?v=1612727188977", icon: "🚥" },
+  { URL: assets + "death.mp3?v=1613011035957", icon: "☠" },
+  { URL: assets + "gong.mp3?v=1613011239154", icon: "🤼" },
+  { URL: assets + "ex.mp3?v=1613011849765", icon: "💣" }
+];
+// お知らせに追加する期限　month:0,day:0で表示しない
+const deadline = [
+  { name: "修論提出", month: 0, day: 0 },
+  { name: "卒論提出", month: 0, day: 0 },
+  { name: "修論発表", month: 0, day: 0 },
+  { name: "卒論発表", month: 2, day: 18 }
 ];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,12 +129,13 @@ const BOT_CHANNEL = "758946751830163477"; // #Bot開発ID
 const GAME_CHANNEL = "768724791141990461"; // #gameID
 const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
 const SHARE_CHANNEL = "803967819402051624"; // #share販売ID
+const SE_CHANNEL = "809079700827668541"; // #ワンタッチ効果音ID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
 const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
-const SE_TEXT = "809086917005279243"; // ワンタッチ効果音のメッセージID
+const SE_TEXT = "809232930001125396"; // ワンタッチ効果音のメッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
 const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
 const week = ["日", "月", "火", "水", "木", "金", "土"];
@@ -156,6 +168,7 @@ const NGword = [
 const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"]; //share販売の絵文字
 let bankMoney = 0; // shareの総額
 let bankText; // 預金のメッセージオブジェクトを保存する
+let seText; // 効果音のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let addName = [""]; // 積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
@@ -216,6 +229,19 @@ client.on("ready", message => {
         loadBank(); //預金データをロードする
       });
     });
+  client.channels.cache
+    .get(SE_CHANNEL)
+    .messages.fetch({ after: "0", limit: 20 })
+    .then(messages => {
+      messages.forEach(m => {
+        if (m.id != SE_TEXT) m.delete();
+        else {
+          for (let i = 0; i < SE.length; i++) {
+            m.react(SE[i].icon);
+          }
+        }
+      });
+    });
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -234,6 +260,7 @@ cron.schedule(scheduleOrder, () => {
 // ステータスの変更を定時に行う
 cron.schedule("0 * * * *", () => {
   changeState();
+  displayBank("いらっしゃいませ！");
 });
 
 // ボイスチャンネルが更新されたとき、参加者の人数によってBOTが接続したり切断したりする処理
@@ -254,16 +281,21 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
 client.on("message", message => {
   // 自分のコメントや他のbotに反応して無限ループしないようにする
   if (message.author.id == client.user.id || message.author.bot) return;
+  // ゲームチャンネルの処理
   if (message.channel.id == GAME_CHANNEL) {
-    game(message); // ゲームチャンネルの処理
-    return; //ゲームチャンネルだった場合、処理を終える
+    game(message);
+    return;
   }
   // 匿名チャンネルの処理
-  anony(message);
-  if (message.channel.id == ANONY_CHANNEL) return; //匿名チャンネルだった場足、処理を終える
+  if (message.channel.id == ANONY_CHANNEL) {
+    anony(message);
+    return;
+  }
   // share販売チャンネルの処理
-  share(message);
-  if (message.channel.id == SHARE_CHANNEL) return; //shareチャンネルだった場合、処理を終える
+  if (message.channel.id == SHARE_CHANNEL) {
+    share(message);
+    return;
+  }
   // 資料チャンネルの処理
   if (message.channel.id == DOCUMENT_CHANNEL) {
     speak(
@@ -323,19 +355,28 @@ client.on("message", message => {
 
 // shareのリアクションでの購入の処理を行う
 client.on("messageReactionAdd", (reaction, user) => {
-  if (reaction.message.id != BANK_TEXT) return; // リアクション処理を#share販売のメニュー表のみに限定する
-  const userInfo = member.find(v => v.id === user.id); // リアクションを付けたユーザー情報を検索する
-  // shareの利用権限がない人の場合、リアクションを削除して処理終了
-  if (userInfo === undefined) {
-    reaction.users.remove(user);
-    return;
-  }
-  if (userInfo.grade != -1) {
-    // ユーザー情報に登録されていて、かつshare販売の利用権限がある人の場合の処理
-    const emojiID = numIcon.indexOf(reaction.emoji.name);
-    if (product.length >= emojiID + 1) {
-      // 商品数以下の数字を指定されたときのみ処理
-      opeBank(userInfo, -1 * product[emojiID].price, 1);
+  // share販売へリアクションが行われたとき
+  if (reaction.message.id == BANK_TEXT) {
+    const userInfo = member.find(v => v.id === user.id); // リアクションを付けたユーザー情報を検索する
+    // shareの利用権限がない人の場合、リアクションを削除して処理終了
+    if (userInfo === undefined) {
+      reaction.users.remove(user);
+      return;
+    }
+    if (userInfo.grade != -1) {
+      // ユーザー情報に登録されていて、かつshare販売の利用権限がある人の場合の処理
+      const emojiID = numIcon.indexOf(reaction.emoji.name);
+      if (product.length >= emojiID + 1) {
+        // 商品数以下の数字を指定されたときのみ処理
+        opeBank(userInfo, -1 * product[emojiID].price, 1);
+      }
+      reaction.users.remove(user);
+    }
+  } else if (reaction.message.id == SE_TEXT && user.id != client.user.id) {
+    const sound = SE.find(v => v.icon === reaction.emoji.name);
+    if (sound !== undefined) {
+      const voiceC = client.voice.connections.get(GUILD_ID);
+      if (voiceC !== undefined) voiceC.play(sound.URL);
     }
     reaction.users.remove(user);
   }
@@ -411,14 +452,29 @@ function notice(channel) {
   weatherForecast().then(res => {
     // 天気予報の追加
     text += res[1] + res[0] + "\n";
-    text +=
-      ":timer: 修論発表(` 2月12日`)まで**残り`" +
-      makeEmpty(remainingDays(today[1], today[2], 2, 12), 2, -1) +
-      "日`**\n";
-    text +=
-      ":timer: 卒論発表(` 2月18日`)まで**残り`" +
-      makeEmpty(remainingDays(today[1], today[2], 2, 18), 2, -1) +
-      "日`**\n";
+    // 期限の追加
+    for (let i = 0; i < deadline.length; i++) {
+      // 期限が設定されていたら
+      if (deadline[i].month != 0 || deadline[i].day != 0) {
+        const remain = remainingDays(
+          today[1],
+          today[2],
+          deadline[i].month,
+          deadline[i].day
+        );
+        // 残り日数が30日を切ったら明示
+        if (remain < 30) {
+          text +=
+            ":timer: " +
+            deadline[i].name +
+            "(" +
+            formatTime([deadline[i].month, deadline[i].day]) +
+            ")まで**残り`" +
+            makeEmpty(remain, 2, -1) +
+            "日`**\n";
+        }
+      }
+    }
     if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
     if (today[3] == 4 && today[2] <= 6)
       text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
@@ -1328,20 +1384,33 @@ function anony(message) {
 function share(message) {
   if (message.channel.id == SHARE_CHANNEL) {
     const mb = member.find(v => v.id === message.member.id);
-    if (message.content.match(/^-?\d{1,}$/) && mb !== undefined) {
-      opeBank(mb, Number(message.content), 0);
+    if (mb === undefined) {
       message.delete();
+      addLog("関係者以外のアクセスが検知されました。");
       return;
-    } else if (
-      message.content.match(/^share[　 ]-?\d{1,}$/) &&
-      mb !== undefined
-    ) {
+    }
+    if (message.content.match(/^-?\d{1,}$/)) {
+      opeBank(mb, Number(message.content), 0);
+    } else if (message.content.match(/^share[　 ]-?\d{1,}$/)) {
       const data = splitSpace(message.content);
       opeBank(mb, Number(data[1]), 2);
-      message.delete();
-    } else {
-      message.delete();
+    } else if (message.content.match(/^send[ 　]\d{1,}[ 　]/)) {
+      const data = splitSpace(message.content);
+      if (data.length == 3) {
+        const recieve = member.find(v => v.name === data[2]);
+        if (recieve === undefined) {
+          message.delete();
+          return;
+        }
+        opeBank(mb, Number(-data[1]), 0);
+        opeBank(recieve, Number(data[1]), 0);
+        const text =
+          mb.name + "から" + recieve.name + "へ送金完了(" + data[1] + "円)";
+        displayBank(text);
+        addLog(text);
+      }
     }
+    message.delete();
   }
 }
 
