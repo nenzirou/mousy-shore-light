@@ -28,11 +28,11 @@ const member = [
   { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
+  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: 9 },
   { id: "715796433487396864", name: "伊藤", zOrder: 0, G: 0, grade: 2 },
   { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
   { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
   { id: "708191971424075797", name: "南部", zOrder: 4, G: 0, grade: 2 },
-  { id: "807689067663327274", name: "おじ", zOrder: -1, G: 0, grade: 2 },
   { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
   { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
   { id: "337439445269741568", name: "高岡", zOrder: 4, G: 0, grade: 1 },
@@ -82,6 +82,13 @@ const product = [
   { name: "１２０円ゾーン", price: 120 },
   { name: "２００円ゾーン", price: 200 }
 ];
+// お知らせに追加する期限　month:0,day:0で表示しない
+const deadline = [
+  { name: "修論提出", month: 0, day: 0 },
+  { name: "卒論提出", month: 0, day: 0 },
+  { name: "修論発表", month: 0, day: 0 },
+  { name: "卒論発表", month: 2, day: 18 }
+];
 // 効果音の設定
 const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
 const SE = [
@@ -97,14 +104,6 @@ const SE = [
   { URL: assets + "gong.mp3?v=1613011239154", icon: "🤼" },
   { URL: assets + "ex.mp3?v=1613011849765", icon: "💣" }
 ];
-// お知らせに追加する期限　month:0,day:0で表示しない
-const deadline = [
-  { name: "修論提出", month: 0, day: 0 },
-  { name: "卒論提出", month: 0, day: 0 },
-  { name: "修論発表", month: 0, day: 0 },
-  { name: "卒論発表", month: 2, day: 18 }
-];
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //プログラム始まり
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,6 +136,7 @@ const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
 const SE_TEXT = "809232930001125396"; // ワンタッチ効果音のメッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
+const DELAY = 3000; //命令が消えるまでの時間
 const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
 const week = ["日", "月", "火", "水", "木", "金", "土"];
 let noticeList = []; // ユーザのお知らせを格納するリスト
@@ -465,7 +465,7 @@ function notice(channel) {
         // 残り日数が30日を切ったら明示
         if (remain < 30) {
           text +=
-            ":timer: " +
+            ":stopwatch: " +
             deadline[i].name +
             "(" +
             formatTime([deadline[i].month, deadline[i].day]) +
@@ -590,7 +590,7 @@ function zemi(message) {
       opeZemi(1);
       clearAddName();
     }
-    if (message.content.match(/zemi/)) message.delete();
+    if (message.content.match(/zemi/)) message.delete({ timeout: DELAY });
     save();
     return;
   }
@@ -606,7 +606,7 @@ function back(message) {
         combiName(getLastNamesFromID(zemiID), addName) +
         "さんです。"
     );
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -621,7 +621,7 @@ function forward(message) {
         combiName(getLastNamesFromID(zemiID), addName) +
         "さんです。"
     );
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -630,7 +630,7 @@ function next(message) {
   if (message.content.match(/^next$/)) {
     let text = returnOrder();
     sendMsg(message.channel.id, text);
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -653,7 +653,7 @@ function add(message) {
       message.channel.id,
       "次のゼミ発表者：" + combiName(getLastNamesFromID(zemiID), addName)
     );
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -664,7 +664,7 @@ function take(message) {
     let text = "積み残しリストを削除しました。";
     save();
     sendMsg(message.channel.id, text);
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -679,7 +679,7 @@ function join(message) {
       );
     else message.member.voice.channel.join();
     console.log(ch + "に接続");
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -690,7 +690,7 @@ function leave(message) {
       sendMsg(message.channel.id, "botがボイスチャンネルに入室していません。");
     else disconnect();
     console.log("ボイスチャンネルから退出");
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -709,7 +709,7 @@ function teachVoice(message) {
         "「teach 読み方を変更する文字列 読み方」のように入力してください。"
       );
     }
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -730,7 +730,7 @@ function clearVoice(message) {
         "「clear 削除したい文字列」のように入力してください。"
       );
     }
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -738,12 +738,21 @@ function clearVoice(message) {
 function setNoticeList(message) {
   if (message.content.match(/^set/)) {
     const str = splitSpace(message.content.replace(/,|\n/g, ""));
-    if (str.length == 4) {
+    if (str.length == 3 && !isNaN(str[2])) {
+      noticeList.push(str[1]);
+      noticeList.push(Number(str[2]));
+      sendMsg(
+        message.channel.id,
+        "「" +
+          str[1] +
+          "」を毎朝のお知らせに追加しました。\n残り" +
+          str[2] +
+          "日間表示されます。"
+      );
+    } else if (str.length == 4 && !isNaN(str[2]) && !isNaN(str[3])) {
       const time = getTime(0);
       const remain = remainingDays(time[1], time[2], str[2], str[3]);
-      const name = member.find(v => v.id === message.member.id);
-      let text = message.member.displayName.substring(0, 2) + "：" + str[1];
-      if (name !== undefined) text = name.name + "：" + text;
+      let text = str[1];
       noticeList.push(text);
       noticeList.push(remain);
       sendMsg(
@@ -758,10 +767,10 @@ function setNoticeList(message) {
     } else {
       sendMsg(
         message.channel.id,
-        "「set お知らせに追加したい文章 月 日」のように入力してください。"
+        "「set 文章 日数」or「set 文章 月 日」のように入力してください。"
       );
     }
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -786,7 +795,7 @@ function len(message) {
       (line + 1) +
       "行";
     sendMsg(message.channel.id, text);
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -813,7 +822,7 @@ function sel(message) {
       returnName(memberList),
       voiceTable[Math.floor(Math.random() * voiceTable.length)]
     );
-    message.delete();
+    message.delete({ timeout: DELAY });
     return;
   }
 }
@@ -855,11 +864,12 @@ function weather(message) {
           " " +
           makeEmpty(res.body.hourly[i].weather[0].description, 5, 1);
         text +=
-          "気温`" +
+          "`" +
           makeEmpty(Math.round(res.body.hourly[i].temp) + "℃", 3, -1) +
           "`";
       }
       sendMsg(message.channel.id, text);
+      message.delete({ timeout: DELAY });
     });
   }
 }
@@ -867,7 +877,7 @@ function weather(message) {
 function debug(message) {
   if (message.content.match(/^@db$/)) {
     notice(message.channel.id);
-    message.delete();
+    message.delete({ timeout: DELAY });
     if (message.channel.id !== BOT_CHANNEL) {
       sendMsg(message.channel.id, "ここはBOTチャンネルじゃないよ。");
     }
@@ -1010,7 +1020,7 @@ function say() {
     // キューにメッセージがあり、BOTが発言中でない場合
     var msg = sayQueue.shift(); // メッセージをリストから取り出す
     var speaker = voiceTable[msg.member.id % voiceTable.length]; // 読み上げる声をIDから決定する
-    var sayText = msg.member.displayName.substr(0, 2) + "、" + msg.content; // 読み上げる内容を決定する
+    var sayText = msg.content + "、" + msg.member.displayName.substr(0, 3); // 読み上げる内容を決定する
     speak(sayText, speaker);
   }
 }
@@ -1145,9 +1155,9 @@ function displayBank(str) {
       if (sum % 2 == 1) text += "　";
       text += icons.find(v => v.grade == member[i].grade).icon;
       text +=
-        makeEmpty(member[i].name, 3, 1) +
-        " | " +
-        makeEmpty(member[i].G + "円", 7, -1) +
+        makeEmpty(member[i].name.substring(0, 2), 2, 1) +
+        "|" +
+        makeEmpty(member[i].G + "円", 6, -1) +
         "`";
       preGrade = member[i].grade;
       if (sum % 2 == 1) text += "\n";
@@ -1300,16 +1310,17 @@ function weatherForecast() {
       let hourName = [];
       for (let i = 0; i < hour.length; i++) {
         const now = getTime(hour[i]);
-        hourName.push("`" + makeEmpty(now[4], 2, -1) + "時`：");
+        hourName.push("`" + makeEmpty(now[4], 2, -1) + "時`");
       }
       for (var i = 0; i < hour.length; i++) {
         text1 +=
           hourName[i] +
+          "：" +
           returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon) +
           " " +
           makeEmpty(res.body.hourly[hour[i]].weather[0].description, 5, 1);
         text1 +=
-          "気温`" +
+          "`" +
           makeEmpty(Math.round(res.body.hourly[hour[i]].temp) + "℃", 3, -1) +
           "`\n";
       }
@@ -1317,13 +1328,10 @@ function weatherForecast() {
       let tw = time[3];
       for (var i = 0; i < 7; i++) {
         const today = getTime(i * 24);
-        text2 += "**" + formatTime([today[1], today[2], today[3]]) + "**：";
+        text2 += "**" + formatTime([today[1], today[2], today[3]]) + "**　";
+        text2 += returnWeatherIcon(res.body.daily[i].weather[0].icon);
         text2 +=
-          returnWeatherIcon(res.body.daily[i].weather[0].icon) +
-          " " +
-          makeEmpty(res.body.daily[i].weather[0].description, 6, 1);
-        text2 +=
-          ":red_square:`" +
+          "　:red_square:`" +
           makeEmpty(Math.round(res.body.daily[i].temp.max), 2, -1) +
           "℃` :blue_square:`" +
           makeEmpty(Math.round(res.body.daily[i].temp.min), 2, -1) +
@@ -1424,7 +1432,7 @@ function opeBank(member, money, mode) {
   else if (mode == 2) {
     // share金額のみを操作する場合
     bankMoney += money;
-    displayBank(mN + "share総額(" + pM + "円→" + bankMoney + "円)");
+    displayBank(mN + "share総額(" + money + "円)");
     addLog(
       mN + "SHARE " + money + "円を操作。" + pM + "円→" + bankMoney + "円"
     );
@@ -1432,20 +1440,16 @@ function opeBank(member, money, mode) {
   // 入金操作
   if (mode != 2) {
     if (money > 0) {
-      displayBank(mN + money + "円を入金。　" + pG + "円→" + member.G + "円");
+      displayBank(mN + money + "円を入金。");
       addLog(mN + money + "円を入金。" + pG + "円→" + member.G + "円");
     } else if (money < 0) {
       // 出金操作
       if (mode == 0) {
-        displayBank(
-          mN + money * -1 + "円を出金。　" + pG + "円→" + member.G + "円"
-        );
+        displayBank(mN + money * -1 + "円を出金。");
         addLog(mN + money * -1 + "円を出金。" + pG + "円→" + member.G + "円");
       } else if (mode == 1) {
         // 支払い操作
-        displayBank(
-          money * -1 + "円を支払いました。　" + pG + "円→" + member.G + "円"
-        );
+        displayBank(mN + money * -1 + "円を支払いました。");
         addLog(mN + money * -1 + "円を出金。" + pG + "円→" + member.G + "円");
       }
     }
@@ -2159,6 +2163,9 @@ const state = [
   { name: "縺薙ｓ縺ｫ縺｡縺ｯ譛ｪ譚･縺ｮ譛ｨ蟲ｶ遐如", state: 0 },
   { name: "", state: 0 },
   { name: "", state: 0 },
+  { name: "", state: 0 },
+  { name: "", state: 0 },
+  { name: "", state: 0 },
   { name: "本能寺", state: 1 },
   { name: "ノートルダム大聖堂", state: 1 },
   { name: "自然", state: 1 },
@@ -2179,8 +2186,8 @@ const state = [
   { name: "秋はゆうぐれ", state: 1 },
   { name: "山一証券", state: 1 },
   { name: "福島原発", state: 1 },
-  { name: "", state: 1 },
-  { name: "", state: 1 },
+  { name: "紙パック", state: 1 },
+  { name: "プラスチック", state: 1 },
   { name: "", state: 1 },
   { name: "", state: 1 },
   { name: "", state: 1 },
@@ -2207,8 +2214,13 @@ const state = [
   { name: "黒電話", state: 2 },
   { name: "たまごかけご飯", state: 2 },
   { name: "モハベド・アブドゥル", state: 2 },
-  { name: "", state: 2 },
-  { name: "", state: 2 },
+  { name: "もう戻らないあの頃", state: 2 },
+  { name: "遠い目で空", state: 2 },
+  { name: "白い天井", state: 2 },
+  { name: "あなたの背後", state: 2 },
+  { name: "あなた", state: 2 },
+  { name: "虚空", state: 2 },
+  { name: "もう一人のボク", state: 2 },
   { name: "", state: 2 },
   { name: "", state: 2 }
 ];
