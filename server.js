@@ -28,14 +28,14 @@ const member = [
   { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
-  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: 9 },
+  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: -1 },
   { id: "715796433487396864", name: "伊藤", zOrder: 0, G: 0, grade: 2 },
   { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
   { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
   { id: "708191971424075797", name: "南部", zOrder: 4, G: 0, grade: 2 },
   { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
   { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
-  { id: "337439445269741568", name: "高岡", zOrder: 4, G: 0, grade: 1 },
+  { id: "337439445269741568", name: "髙岡", zOrder: 4, G: 0, grade: 1 },
   { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 1 },
   { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 4 },
   { id: "694560220730359890", name: "野ツ俣", zOrder: 5, G: 0, grade: 4 },
@@ -87,7 +87,7 @@ const deadline = [
   { name: "修論提出", month: 0, day: 0 },
   { name: "卒論提出", month: 0, day: 0 },
   { name: "修論発表", month: 0, day: 0 },
-  { name: "卒論発表", month: 2, day: 18 }
+  { name: "卒論発表", month: 0, day: 0 }
 ];
 // 効果音の設定
 const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
@@ -102,7 +102,11 @@ const SE = [
   { URL: assets + "hazime.mp3?v=1612727188977", icon: "🚥" },
   { URL: assets + "death.mp3?v=1613011035957", icon: "☠" },
   { URL: assets + "gong.mp3?v=1613011239154", icon: "🤼" },
-  { URL: assets + "ex.mp3?v=1613011849765", icon: "💣" }
+  { URL: assets + "ex.mp3?v=1613011849765", icon: "💣" },
+  {
+    URL: assets + "nyan.mp3?v=1613011849765",
+    icon: "<:nyanz:762647337461874709>"
+  }
 ];
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //プログラム始まり
@@ -128,15 +132,15 @@ const BOT_CHANNEL = "758946751830163477"; // #Bot開発ID
 const GAME_CHANNEL = "768724791141990461"; // #gameID
 const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
 const SHARE_CHANNEL = "803967819402051624"; // #share販売ID
-const SE_CHANNEL = "809079700827668541"; // #ワンタッチ効果音ID
+const SE_CHANNEL = "716877202645450794"; // #説明書ID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
 const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
-const SE_TEXT = "809232930001125396"; // ワンタッチ効果音のメッセージID
+const SE_TEXT = "716968942328872971"; // 効果音のリアクションを持つのメッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
-const DELAY = 3000; //命令が消えるまでの時間
+const DELAY = 5000; //命令が消えるまでの時間
 const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
 const week = ["日", "月", "火", "水", "木", "金", "土"];
 let noticeList = []; // ユーザのお知らせを格納するリスト
@@ -234,8 +238,7 @@ client.on("ready", message => {
     .messages.fetch({ after: "0", limit: 20 })
     .then(messages => {
       messages.forEach(m => {
-        if (m.id != SE_TEXT) m.delete();
-        else {
+        if (m.id == SE_TEXT) {
           for (let i = 0; i < SE.length; i++) {
             m.react(SE[i].icon);
           }
@@ -373,10 +376,12 @@ client.on("messageReactionAdd", (reaction, user) => {
       reaction.users.remove(user);
     }
   } else if (reaction.message.id == SE_TEXT && user.id != client.user.id) {
-    const sound = SE.find(v => v.icon === reaction.emoji.name);
-    if (sound !== undefined) {
-      const voiceC = client.voice.connections.get(GUILD_ID);
-      if (voiceC !== undefined) voiceC.play(sound.URL);
+    if (!sayFlag) {
+      const sound = SE.find(v => v.icon.match(reaction.emoji.name));
+      if (sound !== undefined) {
+        const voiceC = client.voice.connections.get(GUILD_ID);
+        if (voiceC !== undefined) voiceC.play(sound.URL);
+      }
     }
     reaction.users.remove(user);
   }
@@ -402,8 +407,15 @@ function notice(channel) {
     if (today[1] == greeting[i][0] && today[2] == greeting[i][1])
       text = greeting[i][2];
   }
+  //誕生日の人を教える
+  const birth = birthday.filter(v => v.m == today[1] && v.d == today[2]);
   text +=
     "\n今日は**" + formatTime([today[1], today[2], today[3]]) + "**です。\n";
+  if (birth !== undefined) {
+    for(let i=0;i<birth.length;i++){
+      text+="@everyone"+birth[i].name+"の誕生日。おめでとう！\n";
+    }
+  }
   let holidayName = judgeHoliday(today[1], today[2]);
   //ゼミがある日の処理
   if (
@@ -417,7 +429,7 @@ function notice(channel) {
       returnMention(getLastNamesFromID(zemiID).concat(addName)) +
       "です。\n";
     if (channel !== NOTICE_CHANNEL) {
-      text = text.replace(/<@/g, "");
+      text = text.replace(/@/g, "");
     }
   } else {
     //ゼミがあるが祝日の場合の処理
@@ -445,61 +457,56 @@ function notice(channel) {
       formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
       "**の" +
       zemiInfo[nextZemiInfoID].time +
-      "からです。\n発表者は**" +
+      "を予定。\n発表者は**" +
       combiName(getLastNamesFromID(zemiID), addName) +
       "**です。\n"; // ゼミが無い日
   }
-  weatherForecast().then(res => {
-    // 天気予報の追加
-    text += res[1] + res[0] + "\n";
-    // 期限の追加
-    for (let i = 0; i < deadline.length; i++) {
-      // 期限が設定されていたら
-      if (deadline[i].month != 0 || deadline[i].day != 0) {
-        const remain = remainingDays(
-          today[1],
-          today[2],
-          deadline[i].month,
-          deadline[i].day
-        );
-        // 残り日数が30日を切ったら明示
-        if (remain < 30) {
-          text +=
-            ":stopwatch: " +
-            deadline[i].name +
-            "(" +
-            formatTime([deadline[i].month, deadline[i].day]) +
-            ")まで**残り`" +
-            makeEmpty(remain, 2, -1) +
-            "日`**\n";
-        }
+  // 期限の追加
+  for (let i = 0; i < deadline.length; i++) {
+    // 期限が設定されていたら
+    if (deadline[i].month != 0 || deadline[i].day != 0) {
+      const remain = remainingDays(
+        today[1],
+        today[2],
+        deadline[i].month,
+        deadline[i].day
+      );
+      // 残り日数が30日を切ったら明示
+      if (remain < 30) {
+        text +=
+          ":stopwatch: " +
+          deadline[i].name +
+          "(" +
+          formatTime([deadline[i].month, deadline[i].day]) +
+          ")まで**残り`" +
+          makeEmpty(remain, 2, -1) +
+          "日`**\n";
       }
     }
-    if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
-    if (today[3] == 4 && today[2] <= 6)
-      text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
-    if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
-    if (today[3] == 6)
-      text +=
-        today[0] +
-        "年(令和" +
-        today[6] +
-        "年" +
-        zodiac[(today[0] - 2020) % 12] +
-        "年)は残り" +
-        remainingDays(today[1], today[2], 1, 1) +
-        "日です。"; // 毎週土曜日に今年の残りの日数を通知
-    if (noticeList.length > 0) {
-      text += "\n**☆みんなのお知らせ☆**\n";
-      for (var i = 0; i < noticeList.length; i += 2) {
-        text += noticeList[i] + "\n";
-        noticeList[i + 1]--;
-      }
+  }
+  if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
+  if (today[3] == 4 && today[2] <= 6) text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
+  if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
+  if (today[3] == 6)
+    text +=
+      today[0] +
+      "年(令和" +
+      today[6] +
+      "年" +
+      zodiac[(today[0] - 2020) % 12] +
+      "年)は残り" +
+      remainingDays(today[1], today[2], 1, 1) +
+      "日です。"; // 毎週土曜日に今年の残りの日数を通知
+  if (noticeList.length > 0) {
+    text += "\n**☆みんなのお知らせ☆**\n";
+    for (var i = 0; i < noticeList.length; i += 2) {
+      text += noticeList[i] + "\n";
+      noticeList[i + 1]--;
     }
-    judgeNoticeList(); // 期限が切れたお知らせを削除する
-    save();
-    sendMsg(channel, text);
-  });
+  }
+  judgeNoticeList(); // 期限が切れたお知らせを削除する
+  save();
+  sendMsg(channel, text);
 }
 // メッセージに対する反応を行う
 function react(message) {
@@ -600,12 +607,7 @@ function back(message) {
   if (message.content.match(/^back$/)) {
     opeZemi(-1);
     save();
-    sendReply(
-      message,
-      "発表者順を１つ前に移動しました。\n次の発表者は" +
-        combiName(getLastNamesFromID(zemiID), addName) +
-        "さんです。"
-    );
+    sendMsg(message.channel.id, returnOrder());
     message.delete({ timeout: DELAY });
     return;
   }
@@ -615,12 +617,7 @@ function forward(message) {
   if (message.content.match(/^for$/)) {
     opeZemi(1);
     save();
-    sendReply(
-      message,
-      "発表者順を１つ後に移動しました。\n次の発表者は" +
-        combiName(getLastNamesFromID(zemiID), addName) +
-        "さんです。"
-    );
+    sendMsg(message.channel.id, returnOrder());
     message.delete({ timeout: DELAY });
     return;
   }
@@ -913,9 +910,12 @@ function disconnect() {
 }
 // 提示お知らせリストを条件を見て削除する
 function judgeNoticeList() {
-  var loop = noticeList.length;
-  for (var i = 0; i < loop; i += 2) {
-    if (noticeList[i + 1] <= 0) noticeList.splice(i, 2);
+  let loop = noticeList.length;
+  for (let i = 0; i < loop; i += 2) {
+    if (noticeList[i + 1] <= 0) {
+      noticeList.splice(i, 2);
+      i -= 2;
+    }
   }
 }
 // 通常の発表者と積み残しの発表者名を結合して返す
@@ -963,8 +963,8 @@ function opeZemi(num) {
 function returnOrder() {
   const today = getTime(0); //今日の日付
   let tmpWeek = today[3];
-  const dayList = [];
-  let sum = 0;
+  const dayList = []; //残り日数を格納する
+  let sum = 0; // 合計日数
   for (let i = 0; i < zOrderNum; i++) {
     let nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek)].week; //次のゼミの曜日
     let diff = diffWeek(
@@ -974,9 +974,23 @@ function returnOrder() {
     if (i == 0) {
       if (tmpWeek == nextZemi) {
         nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek + 1)].week; //次のゼミの日が今日だった場合、次のゼミを探す
-        diff = diffWeek(tmpWeek, nextZemi); // 今日と次のゼミの差
       }
+      diff = diffWeek(tmpWeek, nextZemi); // 今日と次のゼミの差
     }
+    console.log(
+      "ループ" +
+        i +
+        ":今日" +
+        tmpWeek +
+        ":次のゼミID" +
+        nextZemi +
+        ":次のゼミ" +
+        zemiInfo[getNextZemiInfoID(nextZemi + 1)].week +
+        ":日数" +
+        diff +
+        ":合計" +
+        sum
+    );
     sum += diff;
     let next = getTime(sum * 24);
     // 祝日の処理
@@ -2070,6 +2084,27 @@ const greeting = [
   [12, 24, "おはようございます！今日はクリスマスイブ。"],
   [12, 25, "メリークリスマス！"]
 ];
+// 誕生日を指定する
+const birthday = [
+  { m: 2, d: 18, name: "おじさん" },
+  { m: 4, d: 11, name: "三木" },
+  { m: 4, d: 15, name: "大橋" },
+  { m: 5, d: 24, name: "松野" },
+  { m: 5, d: 30, name: "稲守" },
+  { m: 6, d: 2, name: "木島先生" },
+  { m: 7, d: 31, name: "尾山" },
+  { m: 8, d: 4, name: "平野" },
+  { m: 9, d: 2, name: "白木" },
+  { m: 9, d: 13, name: "伊藤" },
+  { m: 9, d: 17, name: "浅野" },
+  { m: 10, d: 22, name: "谷口" },
+  { m: 10, d: 31, name: "髙岡" },
+  { m: 11, d: 24, name: "新良" },
+  { m: 1, d: 26, name: "野ツ俣" },
+  { m: 1, d: 28, name: "虫鹿" },
+  { m: 2, d: 15, name: "南部" },
+  { m: 3, d: 12, name: "犬飼" }
+];
 // 誰かがありがとうなど発言したときの返し
 const thanks = [
   "サンキュでぇ～す！",
@@ -2161,7 +2196,7 @@ const state = [
   { name: "お″ねぇ″さ″ん", state: 0 },
   { name: "遘√?縺輔￥縺励ｃ縺ｮ縺ゅ＆縺ｮ蜆ｪ縺ｧ縺", state: 0 },
   { name: "縺薙ｓ縺ｫ縺｡縺ｯ譛ｪ譚･縺ｮ譛ｨ蟲ｶ遐如", state: 0 },
-  { name: "", state: 0 },
+  { name: "就職活動", state: 0 },
   { name: "", state: 0 },
   { name: "", state: 0 },
   { name: "", state: 0 },
