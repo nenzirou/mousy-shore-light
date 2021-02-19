@@ -173,8 +173,8 @@ const NGword = [
 ];
 const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"]; //share販売の絵文字
 const gameIcon = [
-  "⬆",
   "⬅",
+  "⬆",
   "⬇",
   "➡",
   "💣",
@@ -186,6 +186,7 @@ let bankMoney = 0; // shareの総額
 let bankText; // 預金のメッセージオブジェクトを保存する
 let weatText; //天気予報のメッセージオブジェクトを保存する
 let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
+let noticeText; //お知らせのメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let addName = [""]; // 積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
@@ -228,7 +229,7 @@ client.on("ready", message => {
   //ゲームチャンネルのテキストを読み込み、説明とディスプレイとランキング以外を削除
   client.channels.cache
     .get(GAME_CHANNEL)
-    .messages.fetch({ after: "0", limit: 20 })
+    .messages.fetch({ after: "0", limit: 5 })
     .then(messages =>
       messages.forEach(m => {
         if (m.id != INST_TEXT && m.id != RANK_TEXT && m.id != DISP_TEXT)
@@ -244,7 +245,7 @@ client.on("ready", message => {
   //share販売チャンネルを読み込み、預金と説明以外のメッセージを削除する
   client.channels.cache
     .get(SHARE_CHANNEL)
-    .messages.fetch({ after: "0", limit: 20 })
+    .messages.fetch({ after: "0", limit: 3 })
     .then(messages => {
       messages.forEach(m => {
         if (m.id != BANK_TEXT && m.id != BINS_TEXT) m.delete();
@@ -254,7 +255,7 @@ client.on("ready", message => {
     });
   client.channels.cache
     .get(SE_CHANNEL)
-    .messages.fetch({ after: "0", limit: 20 })
+    .messages.fetch({ after: "0", limit: 1 })
     .then(messages => {
       messages.forEach(m => {
         if (m.id == SE_TEXT) {
@@ -266,7 +267,7 @@ client.on("ready", message => {
     });
   client.channels.cache
     .get(WEATHER_CHANNEL)
-    .messages.fetch({ after: "0", limit: 20 })
+    .messages.fetch({ after: "0", limit: 2 })
     .then(messages => {
       messages.forEach(m => {
         if (m.id == WEAT_TEXT) {
@@ -274,7 +275,20 @@ client.on("ready", message => {
         }
       });
     });
-
+  client.channels.cache
+    .get(NOTICE_CHANNEL)
+    .messages.fetch({ limit: 5 })
+    .then(messages => {
+      messages.forEach(m => {
+        if (m.author.id == client.user.id) {
+          if (noticeText === undefined) {
+            noticeText = m;
+            noticeText.react("✋");
+            noticeText.react("✊");
+          }
+        }
+      });
+    });
   setTimeout(() => {
     display(H, W, field, "");
     weather();
@@ -406,7 +420,9 @@ client.on("messageReactionAdd", (reaction, user) => {
       }
       reaction.users.remove(user);
     }
-  } else if (reaction.message.id == SE_TEXT && user.id != client.user.id) {
+  }
+  // 効果音テキストにリアクションが行われたとき
+  if (reaction.message.id == SE_TEXT && user.id != client.user.id) {
     if (!sayFlag) {
       const sound = SE.find(v => v.icon.match(reaction.emoji.name));
       if (sound !== undefined) {
@@ -415,6 +431,24 @@ client.on("messageReactionAdd", (reaction, user) => {
       }
     }
     reaction.users.remove(user);
+  }
+  // お知らせテキストにリアクションが行われたとき
+  if (reaction.message.id == noticeText.id && user.id != client.user.id) {
+    if (reaction.emoji.name === "✋") {
+      const Member = member.find(v => v.id === user.id);
+      addAddName(Member.name);// 自分を発表者に追加
+      save();
+      reaction.users.remove(user);
+    }else if(reaction.emoji.name==="✊"){
+      const Member = member.find(v => v.id === user.id);
+      const ID = addName.indexOf(Member.name);
+      if(ID!=-1){
+        addName.splice(ID,1);
+        save();
+      }
+      reaction.users.remove(user);
+    }
+    noticeText.edit(noticeText.content.replace(/発表者は.+です。/,"発表者は"+combiName(getLastNamesFromID(zemiID), addName) +"です。"));
   }
 });
 
@@ -539,6 +573,11 @@ async function notice(channel) {
     text = text.replace(/@/g, "");
   }
   const msg = await client.channels.cache.get(channel).send(text);
+  if (channel == NOTICE_CHANNEL) {
+    noticeText = msg;
+    noticeText.react("✋");
+    noticeText.react("✊");
+  }
   if (birth.length > 0) msg.react("🎉");
 }
 // メッセージに対する反応を行う
@@ -1011,7 +1050,7 @@ function returnOrder() {
 function addAddName(str) {
   let text = "";
   if (str !== "") {
-    addName.push(str);
+    if(addName.indexOf(str)==-1)addName.push(str);
     text += str + " ";
   }
   return text;
@@ -1581,7 +1620,11 @@ const objectName = [
   "NHK",
   "もう一人のミー",
   "ピクミン",
-  "地球の皆"
+  "地球の皆",
+  "虚空",
+  "ゴキブリ",
+  "概念",
+  "ミッ〇キー"
 ];
 const objectMinusVerb = [
   "が降ってきた",
@@ -1595,7 +1638,8 @@ const objectMinusVerb = [
   "に激突した",
   "にビンタされた",
   "に潰された",
-  "と核融合した"
+  "と核融合した",
+  "に訴えられた"
 ];
 const objectPlusVerb = [
   "に癒された",
@@ -1651,7 +1695,7 @@ function makeGame() {
   enemy = [];
   bomb = [];
   nyan = new Nyanchu(H - 2, W - 2);
-  flavorText = "レッツスタートにゃ～！";
+  flavorText = "黄色マスまでレッツスタートにゃぁ！";
   let enemyNum = 3;
   en: while (enemyNum) {
     let eX = Math.floor(Math.random() * (W - 1)) + 1;
@@ -1984,12 +2028,13 @@ client.on("messageReactionAdd", (reaction, user) => {
         displayDeleteReaction(USER, reaction, user);
         return;
       }
-      if (moving == 0) {
+      if (moving == 0 || moving == 1) {
         USER.then(USER => {
           processEvent(USER.displayName);
+          if (moving == 1) flavorText = "壁を破壊したにゃ！！";
           display(H, W, field, USER.displayName);
         }); // フィールドをGAME_CHANNELに描画
-      }else{
+      } else if (moving == -1) {
         flavorText = "壁があって動けないにゃぁ。";
         displayDeleteReaction(USER, reaction, user);
         return;
@@ -2046,13 +2091,13 @@ function makeMaze(H, W) {
 
 // ダイクストラ法で最短経路を求める
 function dijkstra(H, W, field, sx, sy, gx, gy) {
-  var gst = new State(gy, gx, null);
-  var open = [];
+  let gst = new State(gy, gx, null);
+  const open = [];
   open.push(new State(sy, sx, null));
-  var closed = []; // 探索済み座標の格納
+  const closed = []; // 探索済み座標の格納
   // 最短経路の探索
   while (open.length) {
-    var st = open.shift();
+    let st = open.shift();
     // ゴールしたらループから抜ける
     if (st.y == gy && st.x == gx) {
       gst = st;
@@ -2064,8 +2109,8 @@ function dijkstra(H, W, field, sx, sy, gx, gy) {
     if (field[st.y][st.x] === 1) {
       continue;
     }
-    for (var i = 0; i < 4; i++) {
-      var ns = new State(st.y + dy[i], st.x + dx[i], st);
+    for (let i = 0; i < 4; i++) {
+      const ns = new State(st.y + dy[i], st.x + dx[i], st);
       open.push(ns);
     }
     closed.push((st.y << 16) | st.x);
