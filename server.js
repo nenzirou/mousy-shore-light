@@ -188,6 +188,7 @@ let weatText; //天気予報のメッセージオブジェクトを保存する
 let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
 let noticeText; //お知らせのメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
+let zemiDone = false; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
 let ranking = []; // ゲームチャンネルのランキング
@@ -277,7 +278,7 @@ client.on("ready", message => {
     });
   client.channels.cache
     .get(NOTICE_CHANNEL)
-    .messages.fetch({ limit: 5 })
+    .messages.fetch({ limit: 10 })
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
@@ -285,6 +286,7 @@ client.on("ready", message => {
             noticeText = m;
             noticeText.react("✋");
             noticeText.react("✊");
+            noticeText.react("<:nyanz:762647337461874709>");
           }
         }
       });
@@ -298,6 +300,7 @@ client.on("ready", message => {
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule("30 5 22 * * *", () => {
   notice(NOTICE_CHANNEL);
+  zemiDone = false;
 });
 // ゼミ終了後にゼミ順を定時連絡する
 let scheduleOrder = "0 10 * * ";
@@ -361,8 +364,6 @@ client.on("message", message => {
   if (message.content.match(/http/)) return;
   // 各種反応
   react(message);
-  // ゼミ開始の処理 @zemi
-  zemi(message);
   // ゼミ順を前に移動する @back
   back(message);
   // ゼミ順を後に移動する @for
@@ -436,19 +437,26 @@ client.on("messageReactionAdd", (reaction, user) => {
   if (reaction.message.id == noticeText.id && user.id != client.user.id) {
     if (reaction.emoji.name === "✋") {
       const Member = member.find(v => v.id === user.id);
-      addAddName(Member.name);// 自分を発表者に追加
+      addAddName(Member.name); // 自分を発表者に追加
       save();
       reaction.users.remove(user);
-    }else if(reaction.emoji.name==="✊"){
+    } else if (reaction.emoji.name === "✊") {
       const Member = member.find(v => v.id === user.id);
       const ID = addName.indexOf(Member.name);
-      if(ID!=-1){
-        addName.splice(ID,1);
+      if (ID != -1) {
+        addName.splice(ID, 1);
         save();
       }
       reaction.users.remove(user);
+    } else if (reaction.emoji.name.match("nyanz")) {
+      zemi(NOTICE_CHANNEL);
     }
-    noticeText.edit(noticeText.content.replace(/発表者は.+です。/,"発表者は"+combiName(getLastNamesFromID(zemiID), addName) +"です。"));
+    noticeText.edit(
+      noticeText.content.replace(
+        /発表者は.+です。/,
+        "発表者は" + combiName(getLastNamesFromID(zemiID), addName) + "です。"
+      )
+    );
   }
 });
 
@@ -573,12 +581,13 @@ async function notice(channel) {
     text = text.replace(/@/g, "");
   }
   const msg = await client.channels.cache.get(channel).send(text);
+  if (birth.length > 0) msg.react("🎉");
   if (channel == NOTICE_CHANNEL) {
     noticeText = msg;
     noticeText.react("✋");
     noticeText.react("✊");
+    noticeText.react("<:nyanz:762647337461874709>");
   }
-  if (birth.length > 0) msg.react("🎉");
 }
 // メッセージに対する反応を行う
 function react(message) {
@@ -641,12 +650,8 @@ function react(message) {
   }
 }
 // ゼミ開始の処理
-function zemi(message) {
-  if (
-    message.content.match(
-      /^@?zemi$|ゼミ始|ゼミです|ゼミやりま|ぜみっす|ゼミっす|ゼミ。|ぜみ。|ゼミ開始|ぜみ開始/
-    )
-  ) {
+function zemi(channel) {
+  if (!zemiDone) {
     let text =
       "everyone\nゼミが始まります！\n**発表者：" +
       combiName(getLastNamesFromID(zemiID), addName) +
@@ -661,16 +666,15 @@ function zemi(message) {
         "です。よろしくお願いします。",
       voiceTable[Math.floor(Math.random() * voiceTable.length)]
     );
-    if (message.channel.id == BOT_CHANNEL) {
+    if (channel == BOT_CHANNEL) {
       sendMsg(BOT_CHANNEL, text);
     } else {
-      text = "@" + text;
-      sendMsg(NOTICE_CHANNEL, text);
+      sendMsg(NOTICE_CHANNEL, "@" + text);
       opeZemi(1);
       clearAddName();
     }
-    if (message.content.match(/zemi/)) message.delete({ timeout: DELAY });
     save();
+    zemiDone = true;
     return;
   }
 }
@@ -1050,7 +1054,7 @@ function returnOrder() {
 function addAddName(str) {
   let text = "";
   if (str !== "") {
-    if(addName.indexOf(str)==-1)addName.push(str);
+    if (addName.indexOf(str) == -1) addName.push(str);
     text += str + " ";
   }
   return text;
