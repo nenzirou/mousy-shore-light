@@ -133,12 +133,14 @@ const GAME_CHANNEL = "768724791141990461"; // #gameID
 const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
 const SHARE_CHANNEL = "803967819402051624"; // #share販売ID
 const SE_CHANNEL = "716877202645450794"; // #説明書ID
+const WEATHER_CHANNEL = "811959513568903198"; //#天気予報ID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
 const BANK_TEXT = "807929349562826783"; //預金の表示メッセージID
 const BINS_TEXT = "807926652243410955"; // 預金の説明メッセージID
-const SE_TEXT = "716968942328872971"; // 効果音のリアクションを持つのメッセージID
+const SE_TEXT = "716968942328872971"; // 効果音のリアクションを持つメッセージID
+const WEAT_TEXT = "811961505066123284"; //天気予報のメッセージID
 const GUILD_ID = "694442026762240090"; // 木島研サーバーのID
 const DELAY = 5000; //命令が消えるまでの時間
 const monthDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 各月の日数
@@ -170,9 +172,20 @@ const NGword = [
   "poll"
 ];
 const numIcon = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"]; //share販売の絵文字
+const gameIcon = [
+  "⬆",
+  "⬅",
+  "⬇",
+  "➡",
+  "💣",
+  "⏱",
+  "⏸",
+  "<:death:767774739195494480>"
+];
 let bankMoney = 0; // shareの総額
 let bankText; // 預金のメッセージオブジェクトを保存する
-let seText; // 効果音のメッセージオブジェクトを保存する
+let weatText; //天気予報のメッセージオブジェクトを保存する
+let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let addName = [""]; // 積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
@@ -212,7 +225,7 @@ http
 client.on("ready", message => {
   console.log("Ready!");
   changeState(); // プレイ中のゲーム名を変更
-  // ゲームチャンネルのテキストを読み込み、説明とディスプレイとランキング以外を削除
+  //ゲームチャンネルのテキストを読み込み、説明とディスプレイとランキング以外を削除
   client.channels.cache
     .get(GAME_CHANNEL)
     .messages.fetch({ after: "0", limit: 20 })
@@ -220,6 +233,12 @@ client.on("ready", message => {
       messages.forEach(m => {
         if (m.id != INST_TEXT && m.id != RANK_TEXT && m.id != DISP_TEXT)
           m.delete();
+        else if (m.id == DISP_TEXT) {
+          for (let i = 0; i < gameIcon.length; i++) {
+            m.react(gameIcon[i]);
+          }
+          gameText = m;
+        }
       })
     );
   //share販売チャンネルを読み込み、預金と説明以外のメッセージを削除する
@@ -245,6 +264,21 @@ client.on("ready", message => {
         }
       });
     });
+  client.channels.cache
+    .get(WEATHER_CHANNEL)
+    .messages.fetch({ after: "0", limit: 20 })
+    .then(messages => {
+      messages.forEach(m => {
+        if (m.id == WEAT_TEXT) {
+          weatText = m;
+        }
+      });
+    });
+
+  setTimeout(() => {
+    display(H, W, field, "");
+    weather();
+  }, 1000);
 });
 
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
@@ -264,6 +298,7 @@ cron.schedule(scheduleOrder, () => {
 cron.schedule("0 * * * *", () => {
   changeState();
   displayBank("いらっしゃいませ！");
+  weather();
 });
 
 // ボイスチャンネルが更新されたとき、参加者の人数によってBOTが接続したり切断したりする処理
@@ -338,10 +373,6 @@ client.on("message", message => {
   len(message);
   // メンバーをランダムで選択する @sel
   sel(message);
-  // 天気予報
-  weather(message);
-  // 迷路生成
-  maze(message);
   // デバッグ用 @db
   debug(message);
 
@@ -398,7 +429,7 @@ client.login(process.env.DISCORD_BOT_TOKEN); // ログインする
 //                                                                                Main Function                                                                                                 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 定時連絡のテキストを生成する関数
-function notice(channel) {
+async function notice(channel) {
   const today = getTime(0); // 西暦(0),月(1),日(2),曜日(3),時間(4),分(5),和暦(6)の順の配列を返す
   let nextZemiInfoID = getNextZemiInfoID(today[3]); // 次のゼミのID
   let text = "おはようございます！";
@@ -411,9 +442,10 @@ function notice(channel) {
   const birth = birthday.filter(v => v.m == today[1] && v.d == today[2]);
   text +=
     "\n今日は**" + formatTime([today[1], today[2], today[3]]) + "**です。\n";
-  if (birth !== undefined) {
-    for(let i=0;i<birth.length;i++){
-      text+="@everyone"+birth[i].name+"の誕生日。おめでとう！\n";
+  if (birth.length > 0) {
+    text += "everyone";
+    for (let i = 0; i < birth.length; i++) {
+      text += birth[i].name + "の誕生日。おめでとう！\n";
     }
   }
   let holidayName = judgeHoliday(today[1], today[2]);
@@ -428,9 +460,6 @@ function notice(channel) {
       "**からの予定です。\n発表者は" +
       returnMention(getLastNamesFromID(zemiID).concat(addName)) +
       "です。\n";
-    if (channel !== NOTICE_CHANNEL) {
-      text = text.replace(/@/g, "");
-    }
   } else {
     //ゼミがあるが祝日の場合の処理
     if (
@@ -506,7 +535,11 @@ function notice(channel) {
   }
   judgeNoticeList(); // 期限が切れたお知らせを削除する
   save();
-  sendMsg(channel, text);
+  if (channel !== NOTICE_CHANNEL) {
+    text = text.replace(/@/g, "");
+  }
+  const msg = await client.channels.cache.get(channel).send(text);
+  if (birth.length > 0) msg.react("🎉");
 }
 // メッセージに対する反応を行う
 function react(message) {
@@ -824,51 +857,10 @@ function sel(message) {
   }
 }
 //天気予報表示
-function weather(message) {
-  if (message.content.match(/^weather$/)) {
-    const req = unirest(
-      "GET",
-      "http://api.openweathermap.org/data/2.5/onecall?lat=35.4232&lon=136.7606&units=metric&lang=ja&appid=7f9fb408b66bcb820ef71aa80ab569cd"
-    );
-    req.then(res => {
-      let text = "";
-      for (let i = 0; i < res.body.daily.length; i++) {
-        const time = getTime(i * 24);
-        text +=
-          formatTime([time[1], time[2], time[3]]) +
-          "：" +
-          returnWeatherIcon(res.body.daily[i].weather[0].icon) +
-          " " +
-          makeEmpty(res.body.daily[i].weather[0].description, 5, 1);
-        text +=
-          "高`" +
-          makeEmpty(Math.round(res.body.daily[i].temp.max) + "℃`", 4, -1) +
-          "低`" +
-          makeEmpty(Math.round(res.body.daily[i].temp.min) + "℃`", 4, -1) +
-          "\n";
-      }
-      sendMsg(message.channel.id, text);
-      text = "";
-      for (let i = 0; i < res.body.hourly.length; i++) {
-        const time = getTime(i);
-        text +=
-          "\n`" +
-          makeEmpty(time[2], 2, -1) +
-          "日" +
-          makeEmpty(time[4], 2, -1) +
-          "時`：" +
-          returnWeatherIcon(res.body.hourly[i].weather[0].icon) +
-          " " +
-          makeEmpty(res.body.hourly[i].weather[0].description, 5, 1);
-        text +=
-          "`" +
-          makeEmpty(Math.round(res.body.hourly[i].temp) + "℃", 3, -1) +
-          "`";
-      }
-      sendMsg(message.channel.id, text);
-      message.delete({ timeout: DELAY });
-    });
-  }
+function weather() {
+  weatherForecast().then(res => {
+    weatText.edit(res[1] + res[0]);
+  });
 }
 // デバッグ用 @db
 function debug(message) {
@@ -1318,25 +1310,23 @@ function weatherForecast() {
   ); // 岐阜市の天気をもらってくる
   return new Promise((resolve, reject) => {
     req.end(function(res) {
-      console.log(res.body.current);
-      console.log(res.body.daily[0]);
-      let hour = [0, 3, 6, 9, 12];
       let hourName = [];
-      for (let i = 0; i < hour.length; i++) {
-        const now = getTime(hour[i]);
-        hourName.push("`" + makeEmpty(now[4], 2, -1) + "時`");
-      }
-      for (var i = 0; i < hour.length; i++) {
-        text1 +=
-          hourName[i] +
-          "：" +
-          returnWeatherIcon(res.body.hourly[hour[i]].weather[0].icon) +
-          " " +
-          makeEmpty(res.body.hourly[hour[i]].weather[0].description, 5, 1);
-        text1 +=
-          "`" +
-          makeEmpty(Math.round(res.body.hourly[hour[i]].temp) + "℃", 3, -1) +
-          "`\n";
+      for (let i = 0; i < 24; i++) {
+        const now = getTime(i);
+        if (now[4] >= 7 && now[4] <= 20) {
+          text1 +=
+            formatTime([now[1], now[2]]).slice(0, -1) +
+            makeEmpty(now[4], 2, -1) +
+            "時`" +
+            "：" +
+            returnWeatherIcon(res.body.hourly[i].weather[0].icon) +
+            " " +
+            makeEmpty(res.body.hourly[i].weather[0].description, 5, 1);
+          text1 +=
+            "`" +
+            makeEmpty(Math.round(res.body.hourly[i].temp) + "℃", 3, -1) +
+            "`\n";
+        }
       }
       let time = getTime(0);
       let tw = time[3];
@@ -1540,13 +1530,16 @@ class Bomb {
 // 下、左、上、右
 const dx = [0, -1, 0, 1];
 const dy = [1, 0, -1, 0];
-let field;
 const H = 11;
 const W = 11;
-let gameMsg = [];
-let nyan;
-let enemy;
-let bomb;
+// フィールド生成
+let field = new Array(H);
+for (var i = 0; i < H; i++) {
+  field[i] = new Array(W).fill(1);
+}
+let enemy = [];
+let bomb = [];
+let nyan = new Nyanchu(H - 2, W - 2);
 let flavorText;
 var gameOver = true;
 const objectName = [
@@ -1616,6 +1609,89 @@ const objectPlusVerb = [
   "の一発ギャグが面白かった",
   "を手に入れてうれしい"
 ];
+const commonText = [
+  "おばけに地雷を当てると、にゃんと500スコア加算にゃ！！",
+  "紫マスはワープが出来るにゃ！",
+  "青マスはHPが回復するにゃ！",
+  "赤マスはダメージを受けるから気を付けるにゃ！",
+  "緑マスは良いことが起こるらしいにゃ！",
+  "時間停止を使えば時を止められるにゃ！",
+  "壁破壊で道を作るのも手にゃ。",
+  "50ターンを過ぎると1ターンごとに20スコア減るにゃ！",
+  "50ターンより早くゴールすると、ボーナススコア獲得にゃ！",
+  "ゴールした時のHPの数でポイントも増えるにゃ！",
+  "何もないにゃ。"
+];
+makeGame();
+
+// ゲームを初期化する
+function makeGame() {
+  let fieldText = makeMaze(H, W);
+  // フィールド生成
+  field = new Array(H);
+  for (var i = 0; i < H; i++) {
+    field[i] = new Array(W).fill(1);
+  }
+  // フィールドテキストを参照、通路を判定し数値に変換する
+  for (var i = 0; i < H; i++) {
+    for (var j = 0; j < W; j++) {
+      if (fieldText[i + 1][j + 1] === "　") field[i][j] = 0;
+    }
+  }
+  field[H - 3][W - 2] = 0; //初期位置のとなりは通路
+  field[H - 2][W - 3] = 0; //初期位置のとなりは通路
+  situate(H, W, field, 0, 7, 1); // 壁をいくつか通路に変換する
+  situate(H, W, field, 2, 10, 0); // ダメージポイントを生成
+  situate(H, W, field, 3, 12, 0); // 回復ポイントを生成
+  situate(H, W, field, 4, 6, 0); // 壁壊しポイントを生成
+  situate(H, W, field, 5, 6, 0); // 地雷ポイントを生成
+  situate(H, W, field, 12, 2, 0); // 停止ポイントを生成
+  situate(H, W, field, 11, 2, 1); // ワープポイントを生成
+  field[1][1] = 6; // ゴール
+  enemy = [];
+  bomb = [];
+  nyan = new Nyanchu(H - 2, W - 2);
+  flavorText = "レッツスタートにゃ～！";
+  let enemyNum = 3;
+  en: while (enemyNum) {
+    let eX = Math.floor(Math.random() * (W - 1)) + 1;
+    let eY = Math.floor(Math.random() * (H - 1)) + 1;
+    if (eX >= W - 5 && eY >= H - 5) continue;
+    for (var i = 0; i < enemy.length; i++) {
+      if (enemy[i].x == eX && enemy[i].y == eY) continue en;
+    }
+    if (field[eY][eX] == 0) {
+      enemy.push(new Enemy(eY, eX));
+      enemyNum--;
+    }
+  }
+  gameOver = false;
+}
+// 地雷を使用するときの処理
+function playLandMine() {
+  if (nyan.landmines == 0) {
+    flavorText = "地雷を持ってないにゃん！";
+  } else {
+    flavorText = "地雷を設置したにゃん！";
+    bomb.push(new Bomb(nyan.y, nyan.x));
+    nyan.landmines--;
+    field[nyan.y][nyan.x] = 9;
+  }
+}
+// 時間停止を使用するときの処理
+function playStopTime() {
+  if (nyan.stop == 0) {
+    flavorText = "時を止められないにゃん！";
+  } else {
+    nyan.stopCnt += 3;
+    nyan.stop--;
+    flavorText = nyan.stopCnt + "ターン時を止めるにゃ！";
+  }
+}
+function displayDelete(message) {
+  display(H, W, field, message.member.displayName); // フィールドをGAME_CHANNELに描画
+  message.delete();
+}
 
 // ゲームの処理を行う
 function game(message) {
@@ -1623,100 +1699,29 @@ function game(message) {
     if (message.author.id != client.user.id) {
       // 初期化
       if (gameOver) {
-        let fieldText = makeMaze(H, W);
-        // フィールド生成
-        field = new Array(H);
-        for (var i = 0; i < H; i++) {
-          field[i] = new Array(W).fill(1);
-        }
-        // フィールドテキストを参照、通路を判定し数値に変換する
-        for (var i = 0; i < H; i++) {
-          for (var j = 0; j < W; j++) {
-            if (fieldText[i + 1][j + 1] === "　") field[i][j] = 0;
-          }
-        }
-        field[H - 3][W - 2] = 0; //初期位置のとなりは通路
-        field[H - 2][W - 3] = 0; //初期位置のとなりは通路
-        situate(H, W, field, 0, 7, 1); // 壁をいくつか通路に変換する
-        situate(H, W, field, 2, 10, 0); // ダメージポイントを生成
-        situate(H, W, field, 3, 12, 0); // 回復ポイントを生成
-        situate(H, W, field, 4, 6, 0); // 壁壊しポイントを生成
-        situate(H, W, field, 5, 6, 0); // 地雷ポイントを生成
-        situate(H, W, field, 12, 2, 0); // 停止ポイントを生成
-        situate(H, W, field, 11, 2, 1); // ワープポイントを生成
-        field[1][1] = 6; // ゴール
-        enemy = [];
-        bomb = [];
-        nyan = new Nyanchu(H - 2, W - 2);
-        flavorText = "レッツスタートにゃ～！";
-        let enemyNum = 3;
-        en: while (enemyNum) {
-          let eX = Math.floor(Math.random() * (W - 1)) + 1;
-          let eY = Math.floor(Math.random() * (H - 1)) + 1;
-          if (eX >= W - 5 && eY >= H - 5) continue;
-          for (var i = 0; i < enemy.length; i++) {
-            if (enemy[i].x == eX && enemy[i].y == eY) continue en;
-          }
-          if (field[eY][eX] == 0) {
-            enemy.push(new Enemy(eY, eX));
-            enemyNum--;
-          }
-        }
-        gameOver = false;
+        makeGame();
       } else {
         // メインループ
         if (message.content.match(/w|か/)) moveNyan(nyan.y - 1, nyan.x);
         else if (message.content.match(/s|な/)) moveNyan(nyan.y + 1, nyan.x);
         else if (message.content.match(/d|は/)) moveNyan(nyan.y, nyan.x + 1);
         else if (message.content.match(/a|た/)) moveNyan(nyan.y, nyan.x - 1);
-        else if (message.content.match(/r|わ/)) gameOver = true;
-        else if (message.content.match(/q|あ/)) {
-          if (nyan.landmines == 0) {
-            flavorText = "地雷を持ってないにゃん！";
-            display(H, W, field, message); // フィールドをGAME_CHANNELに描画
-            message.delete();
-            return;
-          }
-          bomb.push(new Bomb(nyan.y, nyan.x));
-          nyan.landmines--;
-          field[nyan.y][nyan.x] = 9;
+        else if (message.content.match(/r|わ/)) {
+          makeGame();
+          displayDelete(message);
+          return;
+        } else if (message.content.match(/q|あ/)) {
+          playLandMine();
+          displayDelete(message);
+          return;
         } else if (message.content.match(/e|さ/)) {
-          if (nyan.stop == 0) {
-            flavorText = "時を止められないにゃん！";
-            display(H, W, field, message); // フィールドをGAME_CHANNELに描画
-            message.delete();
-            return;
-          }
-          nyan.stopCnt += 4;
-          nyan.stop--;
+          playStopTime();
+          displayDelete(message);
+          return;
         }
-        processEvent(message);
-        if (nyan.stopCnt == 0) {
-          nyan.turn++;
-          if (field[nyan.y][nyan.x] != 9) {
-            for (var i = 0; i < enemy.length; i++) {
-              enemy[i].move(H, W, field, nyan);
-            }
-          }
-        } else {
-          nyan.stopCnt--;
-          flavorText = "残り" + nyan.stopCnt + "ターン時を止めるにゃ！";
-          if (nyan.stopCnt == 0) flavorText = "†そして時は動き出す†";
-        }
+        processEvent(message.member.displayName);
       }
-      display(H, W, field, message); // フィールドをGAME_CHANNELに描画
-      message.delete();
-    } else {
-      if (gameMsg.length) {
-        if (gameMsg[gameMsg.length - 1].content.indexOf("☆") != -1) {
-          // 前フレームのメッセージを削除する
-          for (var i = 0; i < gameMsg.length; i++) {
-            let msg = gameMsg.pop();
-            msg.delete();
-          }
-        }
-      }
-      gameMsg.push(message);
+      displayDelete(message);
     }
   }
 }
@@ -1738,7 +1743,7 @@ function situate(H, W, field, id, num, mode) {
   return field;
 }
 // 迷路をテキストにして送信
-function display(H, W, field, message) {
+function display(H, W, field, name) {
   const fieldIdToText = [
     ":white_large_square:",
     ":white_square_button:",
@@ -1758,7 +1763,7 @@ function display(H, W, field, message) {
   if (nyan.turn == 0 || nyan.clear || gameOver) {
     text += "no player\n";
   } else {
-    text += message.member.displayName + "　" + nyan.turn + "ターン目\n";
+    text += name + "　" + nyan.turn + "ターン目\n";
   }
   for (var i = 1; i < H - 1; i++) {
     for (var j = 1; j < W - 1; j++) {
@@ -1778,6 +1783,7 @@ function display(H, W, field, message) {
   }
   if (gameOver && !nyan.clear)
     text += ":red_square:　　GAME OVER　　:red_square:\n";
+  if (nyan.clear) text += ":blue_square:　　GAME CLEAR　:blue_square:\n";
   text +=
     "HP：" +
     nyan.hp +
@@ -1789,11 +1795,8 @@ function display(H, W, field, message) {
     nyan.stop +
     "　スコア：" +
     nyan.score;
-  text += "\nニャンちゅう「" + flavorText + "」";
-  client.channels.cache
-    .get(GAME_CHANNEL)
-    .messages.cache.get(DISP_TEXT)
-    .edit(text + "☆"); // ディスプレイ更新
+  text += "\n<:nyanz:762647337461874709>「" + flavorText + "」";
+  gameText.edit(text + "\n\n\nボタンを押して操作");
 }
 // -1 動けない 0 動いた 1 壁を破壊した
 function moveNyan(y, x) {
@@ -1814,9 +1817,9 @@ function moveNyan(y, x) {
   return 0;
 }
 // 止まったマス目のイベント処理を行う
-function processEvent(message) {
+function processEvent(name) {
   if (field[nyan.y][nyan.x] == 0) {
-    flavorText = "何も無いにゃ。";
+    flavorText = commonText[Math.floor(Math.random() * commonText.length)];
   } else if (field[nyan.y][nyan.x] == 1) {
     flavorText = "壁の中にいるにゃ。";
   } else if (field[nyan.y][nyan.x] == 2) {
@@ -1850,7 +1853,7 @@ function processEvent(message) {
     flavorText = "迷路から脱出できたにゃ″ん！";
     nyan.score += nyan.hp * 50 + (50 - nyan.turn) * 20;
     console.log(nyan.score);
-    let text = rank(nyan.score, message.member.displayName);
+    let text = rank(nyan.score, name);
     client.channels.cache
       .get(GAME_CHANNEL)
       .messages.cache.get(RANK_TEXT)
@@ -1863,7 +1866,6 @@ function processEvent(message) {
     var xy = warp(nyan.x, nyan.y);
     nyan.x = xy[0];
     nyan.y = xy[1];
-    return;
   } else if (field[nyan.y][nyan.x] == 12) {
     flavorText =
       objectName[Math.floor(Math.random() * objectName.length)] +
@@ -1871,10 +1873,23 @@ function processEvent(message) {
     nyan.stop++;
     nyan.score += 50;
   }
-  field[nyan.y][nyan.x] = 0;
+  if (field[nyan.y][nyan.x] !== 11) field[nyan.y][nyan.x] = 0;
   if (nyan.hp <= 0 || (gameOver && !nyan.clear)) {
     gameOver = true;
-    flavorText = "にゃんちゅうは死んだよ";
+    flavorText = "ニャンちゅうは死んだよ";
+  }
+  // ターン処理とお化けの移動
+  if (nyan.stopCnt == 0) {
+    nyan.turn++;
+    if (field[nyan.y][nyan.x] != 9) {
+      for (var i = 0; i < enemy.length; i++) {
+        enemy[i].move(H, W, field, nyan);
+      }
+    }
+  } else {
+    nyan.stopCnt--;
+    flavorText = "残り" + nyan.stopCnt + "ターン時を止めるにゃ！";
+    if (nyan.stopCnt == 0) flavorText = "†そして時は動き出す†";
   }
 }
 
@@ -1935,50 +1950,56 @@ function warp(x, y) {
   }
   return [x, y]; //ほかにワープマスが無い場合、ワープしない
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 迷路生成プログラム
-function maze(message) {
-  if (message.content.match(/maze/)) {
-    var str = message.content.split(" ");
-    if (str.length != 3) {
-      sendMsg(message.channel.id, "「maze 横幅 縦幅」と入力してください。");
+// 表示とリアクションの消去を行う
+function displayDeleteReaction(USER, reaction, user) {
+  USER.then(USER => {
+    display(H, W, field, USER.displayName);
+  }); // フィールドをGAME_CHANNELに描画
+  reaction.users.remove(user);
+}
+//const gameIcon = ["⬆", "⬅", "⬇", "➡","💣","⏱","⏸","<:death:767774739195494480>"];
+// リアクションでのゲーム操作を行う
+client.on("messageReactionAdd", (reaction, user) => {
+  if (reaction.message.id == DISP_TEXT && user !== client.user) {
+    if ("<:death:767774739195494480>".match(reaction.emoji.name)) {
+      makeGame();
+      display(H, W, field, "no player");
+      reaction.users.remove(user);
       return;
     }
-    // フィールド用意
-    var H = Number(str[2]);
-    var W = Number(str[1]);
-    let field = makeMaze(H, W);
-    // 出力
-    let text = "めいろ(左上スタート,右下ゴール)\n";
-    for (var i = 1; i <= H; i++) {
-      for (var j = 1; j <= W; j++) {
-        text += field[i][j];
+    const USER = client.guilds.cache.get(GUILD_ID).members.fetch(user.id);
+    if (!gameOver) {
+      let moving = 0;
+      if (reaction.emoji.name === "⬆") moving = moveNyan(nyan.y - 1, nyan.x);
+      if (reaction.emoji.name === "⬅") moving = moveNyan(nyan.y, nyan.x - 1);
+      if (reaction.emoji.name === "⬇") moving = moveNyan(nyan.y + 1, nyan.x);
+      if (reaction.emoji.name === "➡") moving = moveNyan(nyan.y, nyan.x + 1);
+      if (reaction.emoji.name === "💣") {
+        playLandMine();
+        displayDeleteReaction(USER, reaction, user);
+        return;
       }
-      if (text.length > 1900) {
-        sendMsg(message.channel.id, text);
-        text = "";
+      if (reaction.emoji.name === "⏱") {
+        playStopTime();
+        displayDeleteReaction(USER, reaction, user);
+        return;
       }
-      text += "\n";
+      if (moving == 0) {
+        USER.then(USER => {
+          processEvent(USER.displayName);
+          display(H, W, field, USER.displayName);
+        }); // フィールドをGAME_CHANNELに描画
+      }else{
+        flavorText = "壁があって動けないにゃぁ。";
+        displayDeleteReaction(USER, reaction, user);
+        return;
+      }
     }
-    sendMsg(message.channel.id, text); // 迷路出力
-    text = "最短経路〇　探索範囲＊\n";
-    field = dijkstra(H, W, field, 2, 2, H - 1, W - 1);
-    for (var i = 1; i <= H; i++) {
-      for (var j = 1; j <= W; j++) {
-        text += field[i][j];
-      }
-      if (text.length > 1900) {
-        sendMsg(message.channel.id, text);
-        text = "";
-      }
-      text += "\n";
-    }
-    sendMsg(message.channel.id, text); // 迷路出力
-    message.delete();
+    reaction.users.remove(user);
   }
-}
+});
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 穴掘り法でW×Hの迷路を生成する
 function makeMaze(H, W) {
   if (H % 2 == 0) H++;
@@ -2086,7 +2107,6 @@ const greeting = [
 ];
 // 誕生日を指定する
 const birthday = [
-  { m: 2, d: 18, name: "おじさん" },
   { m: 4, d: 11, name: "三木" },
   { m: 4, d: 15, name: "大橋" },
   { m: 5, d: 24, name: "松野" },
