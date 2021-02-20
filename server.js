@@ -191,6 +191,7 @@ let zemiText; //ゼミ開始のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let zemiDone = false; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
+let preAddName = [""];//前回の積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
 let ranking = []; // ゲームチャンネルのランキング
 load(); // データをロードする
@@ -283,7 +284,7 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
-          if (noticeText === undefined) {
+          if (noticeText === undefined&&m.content.match(/今日は/)) {
             noticeText = m;
             noticeText.react("✋");
             noticeText.react("✊");
@@ -680,6 +681,7 @@ function zemi(channel) {
         .send(text)
         .then(m => (zemiText = m));
       opeZemi(1);
+      preAddName=addName.slice();
       clearAddName();
     }
     save();
