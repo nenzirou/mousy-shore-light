@@ -1917,12 +1917,6 @@ function processEvent(name) {
     nyan.clear = true;
     flavorText = "迷路から脱出できたにゃ″ん！";
     nyan.score += nyan.hp * 50 + (50 - nyan.turn) * 20;
-    console.log(nyan.score);
-    let text = rank(nyan.score, name);
-    client.channels.cache
-      .get(GAME_CHANNEL)
-      .messages.cache.get(RANK_TEXT)
-      .edit(text); // ランキング更新
   } else if (field[nyan.y][nyan.x] == 9) {
     flavorText = "地雷が置いてあるにゃ″ん！";
     return;
@@ -1956,12 +1950,20 @@ function processEvent(name) {
     flavorText = "残り" + nyan.stopCnt + "ターン時を止めるにゃ！";
     if (nyan.stopCnt == 0) flavorText = "†そして時は動き出す†";
   }
+  if(gameOver){
+    console.log(nyan.score);
+    let text = rank(nyan.score, name);
+    client.channels.cache
+      .get(GAME_CHANNEL)
+      .messages.cache.get(RANK_TEXT)
+      .edit(text); // ランキング更新
+  }
 }
 
 // スコアを入れるとランキングのテキストを出力してくれる
 function rank(score, name) {
   let alreadyExist = -1;
-  for (var i = 0; i < 8; i++) {
+  for (var i = 0; i < 10; i++) {
     if (ranking.indexOf(name) != -1) alreadyExist = ranking.indexOf(name);
   }
   if (alreadyExist != -1) {
@@ -1969,8 +1971,8 @@ function rank(score, name) {
     if (ranking[alreadyExist + 1] <= nyan.score)
       ranking[alreadyExist + 1] = nyan.score; // スコア更新出来たらランキングを更新
     // ランキングのソート
-    for (var i = 0; i < 7; i++) {
-      for (var j = 0; j < 7; j++) {
+    for (var i = 0; i < 9; i++) {
+      for (var j = 0; j < 9; j++) {
         if (Number(ranking[j * 2 + 1]) < Number(ranking[(j + 1) * 2 + 1])) {
           let tmpName = ranking[j * 2];
           ranking[j * 2] = ranking[(j + 1) * 2];
@@ -1983,7 +1985,7 @@ function rank(score, name) {
     }
   } else {
     // ランキングに名前が無い場合
-    for (var i = 0; i < 8; i++) {
+    for (var i = 0; i < 10; i++) {
       if (ranking[i * 2 + 1] <= nyan.score) {
         // スコアが高かったら挿入＆末尾削除
         ranking.splice(i * 2, 0, nyan.score);
@@ -1996,9 +1998,15 @@ function rank(score, name) {
   }
   save();
   let text = "☆ランキング☆\n";
-  for (var i = 0; i < 8; i++) {
+  for (var i = 0; i < 10; i++) {
     text +=
-      "`"+(i + 1) + "位`：`"+ranking[i * 2 + 1] + "点`(**" + ranking[i * 2] + "**)\n";
+      "`" +
+      makeEmpty(i + 1,2,-1) +
+      "位`：`" +
+      ranking[i * 2 + 1] +
+      "点`(**" +
+      ranking[i * 2] +
+      "**)\n";
   }
   return text;
 }
@@ -2015,6 +2023,7 @@ function warp(x, y) {
   }
   return [x, y]; //ほかにワープマスが無い場合、ワープしない
 }
+
 // 表示とリアクションの消去を行う
 function displayDeleteReaction(USER, reaction, user) {
   USER.then(USER => {
