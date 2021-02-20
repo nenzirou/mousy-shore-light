@@ -186,6 +186,8 @@ let bankText; // 預金のメッセージオブジェクトを保存する
 let weatText; //天気予報のメッセージオブジェクトを保存する
 let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
 let noticeText; //お知らせのメッセージオブジェクトを保存する
+let zemiText; // ゼミ開始のメッセージオブジェクトを保存する
+let zemiMax = 0; //ゼミに参加した最大数を保存する
 let zemiID = 0; // 発表順の番号
 let zemiDone = false; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
@@ -223,7 +225,9 @@ http
   })
   .listen(3000);
 
-// コンストラクタ
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//コンストラクタ
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 client.on("ready", message => {
   console.log("Ready!");
   changeState(); // プレイ中のゲーム名を変更
@@ -297,6 +301,9 @@ client.on("ready", message => {
   }, 1000);
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//定期実行
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule("30 5 22 * * *", () => {
   notice(NOTICE_CHANNEL);
@@ -318,6 +325,9 @@ cron.schedule("0 * * * *", () => {
   weather();
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//ボイスチャンネル更新時の処理
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ボイスチャンネルが更新されたとき、参加者の人数によってBOTが接続したり切断したりする処理
 client.on("voiceStateUpdate", (oldMember, newMember) => {
   const conn = client.voice.connections.get(GUILD_ID);
@@ -330,8 +340,26 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
     console.log("切断　：　" + conn.channel.name);
     disconnect();
   }
+  // 参加者数を記録する
+  if (zemiDone && zemiText !== undefined && newMember !== null) {
+    if (newMember.channel !== null) {
+      const attendee = newMember.channel.members.array().length;
+      if (zemiMax < attendee) {
+        zemiMax = attendee;
+        zemiText.edit(
+          zemiText.content.replace(
+            /参加者：.+$/,
+            "参加者：" + zemiMax + "人"
+          )
+        );
+      }
+    }
+  }
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//メッセージ処理
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ユーザがメッセージを投稿するとここが呼ばれる
 client.on("message", message => {
   // 自分のコメントや他のbotに反応して無限ループしないようにする
@@ -669,7 +697,8 @@ function zemi(channel) {
       "everyone\nゼミが始まります！\n**発表者：" +
       combiName(getLastNamesFromID(zemiID), addName) +
       "**\n司会　：" +
-      returnName(getLastNamesFromID((zemiID + 2) % zOrderNum));
+      returnName(getLastNamesFromID((zemiID + 2) % zOrderNum)) +
+      "\n参加者：0人";
     speak(
       "今日のゼミの発表者は、" +
         combiName(getLastNamesFromID(zemiID), addName) +
@@ -682,7 +711,10 @@ function zemi(channel) {
     if (channel == BOT_CHANNEL) {
       sendMsg(BOT_CHANNEL, text);
     } else {
-      sendMsg(NOTICE_CHANNEL, "@" + text);
+      client.channels.cache
+        .get(NOTICE_CHANNEL)
+        .send("@" + text)
+        .then(m => (zemiText = m));
       opeZemi(1);
       preAddName = addName.slice();
       clearAddName();
@@ -1950,8 +1982,9 @@ function processEvent(name) {
     flavorText = "残り" + nyan.stopCnt + "ターン時を止めるにゃ！";
     if (nyan.stopCnt == 0) flavorText = "†そして時は動き出す†";
   }
-  if(gameOver){
-    console.log(nyan.score);
+  if (gameOver) {
+    console.log(name+"："+nyan.score);
+    addLog(name+"："+nyan.score);
     let text = rank(nyan.score, name);
     client.channels.cache
       .get(GAME_CHANNEL)
@@ -2001,7 +2034,7 @@ function rank(score, name) {
   for (var i = 0; i < 10; i++) {
     text +=
       "`" +
-      makeEmpty(i + 1,2,-1) +
+      makeEmpty(i + 1, 2, -1) +
       "位`：`" +
       ranking[i * 2 + 1] +
       "点`(**" +
