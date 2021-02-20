@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                  命令表
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// zemi→#お知らせに今日の発表者と司会者、@everyoneを送信。ゼミ順を一つ先へ。
 // for→ゼミ順を一つ先へ。
 // back→ゼミ順を一つ前へ。
 // next→ゼミ順を表示。
@@ -187,11 +186,10 @@ let bankText; // 預金のメッセージオブジェクトを保存する
 let weatText; //天気予報のメッセージオブジェクトを保存する
 let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
 let noticeText; //お知らせのメッセージオブジェクトを保存する
-let zemiText; //ゼミ開始のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let zemiDone = false; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
-let preAddName = [""];//前回の積み残しの人をぶち込むリスト
+let preAddName = [""]; //前回の積み残しの人をぶち込むリスト
 let anonyId = 0; // 匿名掲示板の番号
 let ranking = []; // ゲームチャンネルのランキング
 load(); // データをロードする
@@ -284,7 +282,7 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
-          if (noticeText === undefined&&m.content.match(/今日は/)) {
+          if (noticeText === undefined && m.content.match(/今日は/)) {
             noticeText = m;
             noticeText.react("✋");
             noticeText.react("✊");
@@ -438,40 +436,48 @@ client.on("messageReactionAdd", (reaction, user) => {
   // お知らせテキストにリアクションが行われたとき
   if (user.id != client.user.id) {
     if (reaction.message.id == noticeText.id) {
+      let text = "";
       if (reaction.emoji.name === "✋") {
         const Member = member.find(v => v.id === user.id);
         addAddName(Member.name); // 自分を発表者に追加
+        text += "\n> " + Member.name + "をゼミ発表者に追加。";
         save();
-        reaction.users.remove(user);
       } else if (reaction.emoji.name === "✊") {
         const Member = member.find(v => v.id === user.id);
         const ID = addName.indexOf(Member.name);
+        text += "\n> " + Member.name + "をゼミ発表者から削除。";
         if (ID != -1) {
           addName.splice(ID, 1);
           save();
         }
-        reaction.users.remove(user);
       } else if (reaction.emoji.name.match("nyanz")) {
         zemi(NOTICE_CHANNEL);
       }
       // ゼミ開始テキストの編集
       if (reaction.emoji.name === "✋" || reaction.emoji.name === "✊") {
-        console.log(zemiID);
-        let nameList = combiName(getLastNamesFromID(zemiID), addName);
-        if (zemiDone)
-          nameList = combiName(getLastNamesFromID(zemiID - 1), addName);
-        if (zemiText !== undefined) {
-          zemiText.edit(
-            zemiText.content.replace(/発表者：.+/, "発表者：" + nameList + "**")
+        if (zemiDone) {
+          let nameList = combiName(getLastNamesFromID(zemiID - 1), preAddName);
+          //お知らせテキストの編集
+          noticeText.edit(
+            noticeText.content
+              .replace(/\n> .+をゼミ発表者に追加。/, "")
+              .replace(/\n> .+をゼミ発表者から削除。/, "")
+              .replace(
+                /発表者は.+です。/,
+                "発表者は**" + nameList + "**です。" + text
+              )
+          );
+        } else {
+          let nameList = combiName(getLastNamesFromID(zemiID), addName);
+          //お知らせテキストの編集
+          noticeText.edit(
+            noticeText.content.replace(
+              /発表者は.+です。/,
+              "発表者は**" + nameList + "**です。"
+            )
           );
         }
-        //お知らせテキストの編集
-        noticeText.edit(
-          noticeText.content.replace(
-            /発表者は.+です。/,
-            "発表者は" + nameList + "です。"
-          )
-        );
+        reaction.users.remove(user);
       }
     }
   }
@@ -676,12 +682,9 @@ function zemi(channel) {
     if (channel == BOT_CHANNEL) {
       sendMsg(BOT_CHANNEL, text);
     } else {
-      const msg = client.channels.cache
-        .get(channel)
-        .send(text)
-        .then(m => (zemiText = m));
+      sendMsg(NOTICE_CHANNEL, "@" + text);
       opeZemi(1);
-      preAddName=addName.slice();
+      preAddName = addName.slice();
       clearAddName();
     }
     save();
@@ -921,9 +924,6 @@ function debug(message) {
   if (message.content.match(/^@db$/)) {
     notice(message.channel.id);
     message.delete({ timeout: DELAY });
-    if (message.channel.id !== BOT_CHANNEL) {
-      sendMsg(message.channel.id, "ここはBOTチャンネルじゃないよ。");
-    }
   }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
