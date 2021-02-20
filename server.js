@@ -187,6 +187,7 @@ let bankText; // 預金のメッセージオブジェクトを保存する
 let weatText; //天気予報のメッセージオブジェクトを保存する
 let gameText; // ゲームディスプレイのメッセージオブジェクトを保存する
 let noticeText; //お知らせのメッセージオブジェクトを保存する
+let zemiText; //ゼミ開始のメッセージオブジェクトを保存する
 let zemiID = 0; // 発表順の番号
 let zemiDone = false; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
@@ -434,29 +435,44 @@ client.on("messageReactionAdd", (reaction, user) => {
     reaction.users.remove(user);
   }
   // お知らせテキストにリアクションが行われたとき
-  if (reaction.message.id == noticeText.id && user.id != client.user.id) {
-    if (reaction.emoji.name === "✋") {
-      const Member = member.find(v => v.id === user.id);
-      addAddName(Member.name); // 自分を発表者に追加
-      save();
-      reaction.users.remove(user);
-    } else if (reaction.emoji.name === "✊") {
-      const Member = member.find(v => v.id === user.id);
-      const ID = addName.indexOf(Member.name);
-      if (ID != -1) {
-        addName.splice(ID, 1);
+  if (user.id != client.user.id) {
+    if (reaction.message.id == noticeText.id) {
+      if (reaction.emoji.name === "✋") {
+        const Member = member.find(v => v.id === user.id);
+        addAddName(Member.name); // 自分を発表者に追加
         save();
+        reaction.users.remove(user);
+      } else if (reaction.emoji.name === "✊") {
+        const Member = member.find(v => v.id === user.id);
+        const ID = addName.indexOf(Member.name);
+        if (ID != -1) {
+          addName.splice(ID, 1);
+          save();
+        }
+        reaction.users.remove(user);
+      } else if (reaction.emoji.name.match("nyanz")) {
+        zemi(NOTICE_CHANNEL);
       }
-      reaction.users.remove(user);
-    } else if (reaction.emoji.name.match("nyanz")) {
-      zemi(NOTICE_CHANNEL);
+      // ゼミ開始テキストの編集
+      if (reaction.emoji.name === "✋" || reaction.emoji.name === "✊") {
+        console.log(zemiID);
+        let nameList = combiName(getLastNamesFromID(zemiID), addName);
+        if (zemiDone)
+          nameList = combiName(getLastNamesFromID(zemiID - 1), addName);
+        if (zemiText !== undefined) {
+          zemiText.edit(
+            zemiText.content.replace(/発表者：.+/, "発表者：" + nameList + "**")
+          );
+        }
+        //お知らせテキストの編集
+        noticeText.edit(
+          noticeText.content.replace(
+            /発表者は.+です。/,
+            "発表者は" + nameList + "です。"
+          )
+        );
+      }
     }
-    noticeText.edit(
-      noticeText.content.replace(
-        /発表者は.+です。/,
-        "発表者は" + combiName(getLastNamesFromID(zemiID), addName) + "です。"
-      )
-    );
   }
 });
 
@@ -558,16 +574,6 @@ async function notice(channel) {
   if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
   if (today[3] == 4 && today[2] <= 6) text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
   if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
-  if (today[3] == 6)
-    text +=
-      today[0] +
-      "年(令和" +
-      today[6] +
-      "年" +
-      zodiac[(today[0] - 2020) % 12] +
-      "年)は残り" +
-      remainingDays(today[1], today[2], 1, 1) +
-      "日です。"; // 毎週土曜日に今年の残りの日数を通知
   if (noticeList.length > 0) {
     text += "\n**☆みんなのお知らせ☆**\n";
     for (var i = 0; i < noticeList.length; i += 2) {
@@ -669,7 +675,10 @@ function zemi(channel) {
     if (channel == BOT_CHANNEL) {
       sendMsg(BOT_CHANNEL, text);
     } else {
-      sendMsg(NOTICE_CHANNEL, "@" + text);
+      const msg = client.channels.cache
+        .get(channel)
+        .send(text)
+        .then(m => (zemiText = m));
       opeZemi(1);
       clearAddName();
     }
@@ -1083,19 +1092,24 @@ function speak(text, speaker) {
     .fetchBuffer(text, { speaker: speaker, format: "ogg" })
     .then(buffer => {
       writeFileSync("data/voice.ogg", buffer);
-      var dispatcher = client.voice.connections
-        .get(GUILD_ID)
-        .play("data/voice.ogg");
-      dispatcher.once("finish", () => {
-        sayFlag = false;
-        say();
-      });
+      if (client.voice.connections.get(GUILD_ID) !== undefined) {
+        var dispatcher = client.voice.connections
+          .get(GUILD_ID)
+          .play("data/voice.ogg");
+        dispatcher.once("finish", () => {
+          sayFlag = false;
+          say();
+        });
+      }
     });
 }
 // ファイルに書き込む
 // 0:ゼミ周期ID 1:匿名掲示板番号 2:積み残しリスト 3:ゲームランキング
 function save() {
-  let text = zemiID + "," + anonyId + ",";
+  let text;
+  if (zemiDone) text = "1";
+  else text = "0";
+  text += "," + zemiID + "," + anonyId + ",";
   if (addName.length == 1) text += "none\n";
   else text += addName.join(",") + "\n";
   if (teach.length == 0) text += "none\n";
@@ -1117,11 +1131,12 @@ function load() {
     let td = d[1].split(",");
     let nd = d[2].split(",");
     let rd = d[3].split(",");
-    zemiID = Number(str[0]);
-    anonyId = str[1];
-    if (str[2] !== "none") {
-      for (var i = 1; i < str.length - 2; i++) {
-        addName.push(str[i + 2]);
+    zemiDone = Boolean(Number(str[0]));
+    zemiID = Number(str[1]);
+    anonyId = str[2];
+    if (str[3] !== "none") {
+      for (var i = 1; i < str.length - 3; i++) {
+        addName.push(str[i + 3]);
       }
     }
     if (td[0] !== "none") teach = td;
@@ -1699,7 +1714,7 @@ function makeGame() {
   enemy = [];
   bomb = [];
   nyan = new Nyanchu(H - 2, W - 2);
-  flavorText = "黄色マスまでレッツスタートにゃぁ！";
+  flavorText = "黄色マスを目指してレッツスタートぉん″！";
   let enemyNum = 3;
   en: while (enemyNum) {
     let eX = Math.floor(Math.random() * (W - 1)) + 1;
