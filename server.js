@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                  命令表
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for→ゼミ順を一つ先へ。
+// for→ゼミ順を一つ先へ。`
 // back→ゼミ順を一つ前へ。
 // next→ゼミ順を表示。
 // add→積み残しリストへ追加。[add][add 浅野][add 浅野 稲守]
@@ -20,14 +20,14 @@
 // nameにはその人の苗字を入れてください。
 // zOrderにはその人のゼミ発表順を入れてください。発表が無い人には-1を入れてください。
 // Gには、share販売を使用する人には0,使用しない人に-1を入れてください。読み込まれたお金がここに入ります。
-// gradeには、M2:2 M1:1 B4:4 B3:3 教授:9 それ以外:-1を入力してください　share販売の表示に使用します。
+// gradeには、M2:2 M1:1 B4:4 B3:3 教授:9 それ以外:-1を入力してください　share販売の表示やゼミの参加者の表示に使用します。
 const zOrderNum = 6; //ゼミ周期の個数を入れてください。
 const member = [
   { id: "758946932210008085", name: "BOT", zOrder: -1, G: 0, grade: -1 },
   { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
-  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: 1 },
+  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: -1 },
   { id: "715796433487396864", name: "伊藤", zOrder: 0, G: 0, grade: 2 },
   { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
   { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
@@ -155,7 +155,7 @@ let sayFlag = false; // BOTが発言中かどうかを判定する
 const NGword = [
   "@",
   "＠",
-  "zemi",
+  "!zemi",
   "next",
   "for",
   "back",
@@ -194,6 +194,7 @@ let zemiMode = 0; //ゼミをやったかどうか
 let addName = [""]; // 積み残しの人をぶち込むリスト
 let preAddName = [""]; //前回の積み残しの人をぶち込むリスト
 let attendList = []; //ゼミに参加した人のリスト
+let startTimeStamp; //ゼミ開始時の時間を保存
 let anonyId = 0; // 匿名掲示板の番号
 let ranking = []; // ゲームチャンネルのランキング
 load(); // データをロードする
@@ -288,7 +289,7 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
-          if (noticeText === undefined && m.content.match(/今日は/)) {
+          if (noticeText === undefined && m.content.match(/今日は.+です。/)) {
             noticeText = m;
             noticeText.react("✋");
             noticeText.react("✊");
@@ -307,10 +308,10 @@ client.on("ready", message => {
 //定期実行
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
-cron.schedule("30 5 22 * * *", () => {
+cron.schedule("30 0 22 * * *", () => {
   client.channels.cache
     .get(NOTICE_CHANNEL)
-    .messages.fetch({ limit: 10 })
+    .messages.fetch({ limit: 100 })
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
@@ -322,10 +323,22 @@ cron.schedule("30 5 22 * * *", () => {
     });
   notice(NOTICE_CHANNEL);
   zemiMode = 0;
+  attendList=[];
+  save();
 });
 // ゼミ順の定時連絡
 cron.schedule("0 10 * * *", () => {
   sendMsg(NOTICE_CHANNEL, returnOrder());
+});
+// ゼミ順の定時連絡
+cron.schedule("0 * * * * *", () => {
+  if (zemiMode == 1) {
+    if (zemiText !== undefined) {
+      const timeStamp = Date.now();
+      const time = Math.floor((timeStamp - startTimeStamp) / 1000 / 60) + "分";
+      zemiText.edit(zemiText.content.replace(/時間　：.*/, "時間　：" + time));
+    }
+  }
 });
 // ステータスの変更を定時に行う
 cron.schedule("0 * * * *", () => {
@@ -344,29 +357,38 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
   if (newMember.channel !== null && newMember.id != client.user.id) {
     newMember.channel.join();
     console.log("接続　：　" + newMember.channel.name);
-  } 
+  } else if (conn && conn.channel && conn.channel.members.array().length < 2) {
+    // ボイスチャンネルにbotしかいなくなった場合に切断する
+    if (zemiMode == 1) {
+      if (zemiText !== undefined) {
+        const endTimeStamp = Date.now();
+        const time =
+          Math.floor((endTimeStamp - startTimeStamp) / 1000 / 60) + "分";
+        zemiText.edit(
+          zemiText.content.replace(/時間　：.*/, "時間　：" + time)
+        );
+      }
+      zemiMode = 2;
+    }
+    console.log("切断　：　" + conn.channel.name);
+    disconnect();
+  }
   // 参加者を記録する
   if (zemiMode == 1 && zemiText !== undefined && newMember !== null) {
     if (newMember.channel !== null) {
       const attendee = member.find(v => v.id == newMember.id);
       if (attendee !== undefined) {
-        if (attendList.indexOf(attendee.name) == -1 && attendee.grade != -1) {
+        if (attendList.indexOf(attendee.name) == -1 && attendee.grade != -1&&attendee.grade!=9) {
           attendList.push(attendee.name);
           zemiText.edit(
             zemiText.content.replace(
-              /参加者：.*$/,
+              /参加者：.*/,
               "参加者：" + attendList.join("、")
             )
           );
         }
       }
     }
-  }
-  // ボイスチャンネルにbotしかいなくなった場合に切断する
-  if (conn && conn.channel && conn.channel.members.array().length < 2) {
-    if(zemiMode==1) zemiMode=2;
-    console.log("切断　：　" + conn.channel.name);
-    disconnect();
   }
 });
 
@@ -431,7 +453,8 @@ client.on("message", message => {
   sel(message);
   // デバッグ用 @db
   debug(message);
-
+  // デバッグ用!zemi
+  debug2(message);
   // NGワードは読み上げない
   for (var i = 0; i < NGword.length; i++) {
     if (message.content.match(NGword[i])) return;
@@ -493,10 +516,13 @@ client.on("messageReactionAdd", (reaction, user) => {
       } else if (reaction.emoji.name.match("nyanz")) {
         if (zemiMode == 0) {
           zemi(NOTICE_CHANNEL);
-          let nameList = combiName(getLastNamesFromID(zemiID - 1), preAddName);
+          let nameList = combiName(
+            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum-1),
+            preAddName
+          );
           noticeText.edit(
             noticeText.content.replace(
-              /発表者は.+です。/,
+              /発表者は.+です。(\n次回の発表者.+です。)?/,
               "発表者は**" +
                 nameList +
                 "**です。\n次回の発表者は**" +
@@ -509,11 +535,14 @@ client.on("messageReactionAdd", (reaction, user) => {
       // ゼミ開始テキストの編集
       if (reaction.emoji.name === "✋" || reaction.emoji.name === "✊") {
         if (zemiMode > 0) {
-          let nameList = combiName(getLastNamesFromID(zemiID - 1), preAddName);
+          let nameList = combiName(
+            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum-1),
+            preAddName
+          );
           //お知らせテキストの編集
           noticeText.edit(
             noticeText.content.replace(
-              /発表者は.+です。\n.+です。/,
+              /発表者は.+です。(\n次回の発表者.+です。)?/,
               "発表者は**" +
                 nameList +
                 "**です。\n次回の発表者は**" +
@@ -562,7 +591,7 @@ async function notice(channel) {
   text +=
     "\n今日は**" + formatTime([today[1], today[2], today[3]]) + "**です。\n";
   if (birth.length > 0) {
-    text += "everyone";
+    text += "@everyone";
     for (let i = 0; i < birth.length; i++) {
       text += birth[i].name + "の誕生日。おめでとう！\n";
     }
@@ -636,7 +665,7 @@ async function notice(channel) {
   if (today[3] == 4 && today[2] <= 6) text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
   if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
   if (noticeList.length > 0) {
-    text += "\n**☆みんなのお知らせ☆**\n";
+    text += "\n";
     for (var i = 0; i < noticeList.length; i += 2) {
       text += noticeList[i] + "\n";
       noticeList[i + 1] = Number(noticeList[i + 1]) - 1;
@@ -722,31 +751,32 @@ function zemi(channel) {
     const now = getTime(0);
     const time = formatTime([now[1], now[2], now[3]]);
     const conn = client.voice.connections.get(GUILD_ID);
-    if(conn!==undefined){
+    startTimeStamp = Date.now();
+    if (conn !== undefined) {
       const vc = client.channels.cache.get(conn.channel.id).members.array();
-      for(let i=0;i<vc.length;i++){
-        const mb = member.find(v=>v.id==vc[i].user.id);
-        if(mb!==undefined){
-          attendList.push(mb.name);
+      for (let i = 0; i < vc.length; i++) {
+        const mb = member.find(v => v.id == vc[i].user.id);
+        if (mb !== undefined) {
+          if (mb.grade != -1&&mb.grade!=9) attendList.push(mb.name);
         }
       }
     }
     let text =
       time +
-      "@everyone\nゼミが始まります！\n**発表者：" +
+      "ゼミ@everyone\n**発表者：" +
       combiName(getLastNamesFromID(zemiID), addName) +
       "**\n司会　：" +
       returnName(getLastNamesFromID((zemiID + 2) % zOrderNum)) +
+      "\n時間　：0分" +
       "\n参加者：" +
       attendList.join("、");
     speak(
-      "今日のゼミの発表者は、" +
+      "今日の発表者は、" +
         combiName(getLastNamesFromID(zemiID), addName) +
-        "です。" +
-        "司会は" +
+        "です。司会は" +
         returnName(getLastNamesFromID((zemiID + 2) % zOrderNum)) +
-        "です。よろしくお願いします。",
-      voiceTable[Math.floor(Math.random() * voiceTable.length)]
+        "です。",
+      "takeru"
     );
     if (channel == BOT_CHANNEL) {
       text.replace("@", "");
@@ -760,8 +790,8 @@ function zemi(channel) {
       preAddName = addName.slice();
       clearAddName();
     }
-    save();
     zemiMode = 1;
+    save();
     return;
   }
 }
@@ -996,6 +1026,15 @@ function weather() {
 function debug(message) {
   if (message.content.match(/^@db$/)) {
     notice(message.channel.id);
+    message.delete({ timeout: DELAY });
+  }
+}
+// デバッグ用
+function debug2(message) {
+  if (message.content.match(/^!z$/)) {
+    zemiMode = 0;
+    attendList=[];
+    save();
     message.delete({ timeout: DELAY });
   }
 }
@@ -1357,8 +1396,7 @@ function splitSpace(str) {
 }
 // 西暦,月,日,曜日,時間,分,和歴を日本時間になおして返す
 function getTime(compensate) {
-  const now = new Date();
-  now.setTime(now.getTime() + (9 + compensate) * 3600 * 1000); // 日本時間に補正
+  const now = getTimeObj(compensate);
   let year = now.getFullYear();
   let month = now.getMonth();
   let day = now.getDate();
@@ -1368,6 +1406,12 @@ function getTime(compensate) {
   let era = year - 2018;
   let output = [year, month + 1, day, todayWeek, hour, minutes, era];
   return output;
+}
+//補正したDateオブジェクトを返す
+function getTimeObj(compensate) {
+  const now = new Date();
+  now.setTime(now.getTime() + (9 + compensate) * 3600 * 1000); // 日本時間に補正
+  return now;
 }
 // 指定した日にちが祝日であるかどうか判定する
 function judgeHoliday(month, day) {
