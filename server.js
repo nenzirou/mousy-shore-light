@@ -320,15 +320,12 @@ cron.schedule("30 0 22 * * *", () => {
           }
         }
       });
+      sendMsg(NOTICE_CHANNEL, returnOrder());
     });
   notice(NOTICE_CHANNEL);
   zemiMode = 0;
-  attendList=[];
+  attendList = [];
   save();
-});
-// ゼミ順の定時連絡
-cron.schedule("0 10 * * *", () => {
-  sendMsg(NOTICE_CHANNEL, returnOrder());
 });
 // ゼミ順の定時連絡
 cron.schedule("0 * * * * *", () => {
@@ -378,7 +375,11 @@ client.on("voiceStateUpdate", (oldMember, newMember) => {
     if (newMember.channel !== null) {
       const attendee = member.find(v => v.id == newMember.id);
       if (attendee !== undefined) {
-        if (attendList.indexOf(attendee.name) == -1 && attendee.grade != -1&&attendee.grade!=9) {
+        if (
+          attendList.indexOf(attendee.name) == -1 &&
+          attendee.grade != -1 &&
+          attendee.grade != 9
+        ) {
           attendList.push(attendee.name);
           zemiText.edit(
             zemiText.content.replace(
@@ -517,7 +518,7 @@ client.on("messageReactionAdd", (reaction, user) => {
         if (zemiMode == 0) {
           zemi(NOTICE_CHANNEL);
           let nameList = combiName(
-            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum-1),
+            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum - 1),
             preAddName
           );
           noticeText.edit(
@@ -536,7 +537,7 @@ client.on("messageReactionAdd", (reaction, user) => {
       if (reaction.emoji.name === "✋" || reaction.emoji.name === "✊") {
         if (zemiMode > 0) {
           let nameList = combiName(
-            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum-1),
+            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum - 1),
             preAddName
           );
           //お知らせテキストの編集
@@ -605,7 +606,7 @@ async function notice(channel) {
     text +=
       "ゼミは今日の**" +
       zemiInfo[nextZemiInfoID].time +
-      "**からの予定です。\n発表者は" +
+      "**から。\n発表者は" +
       returnMention(getLastNamesFromID(zemiID).concat(addName)) +
       "です。\n";
   } else {
@@ -634,7 +635,7 @@ async function notice(channel) {
       formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
       "**の" +
       zemiInfo[nextZemiInfoID].time +
-      "を予定。\n発表者は**" +
+      "から。\n発表者は**" +
       combiName(getLastNamesFromID(zemiID), addName) +
       "**です。\n"; // ゼミが無い日
   }
@@ -757,7 +758,7 @@ function zemi(channel) {
       for (let i = 0; i < vc.length; i++) {
         const mb = member.find(v => v.id == vc[i].user.id);
         if (mb !== undefined) {
-          if (mb.grade != -1&&mb.grade!=9) attendList.push(mb.name);
+          if (mb.grade != -1 && mb.grade != 9) attendList.push(mb.name);
         }
       }
     }
@@ -1033,7 +1034,7 @@ function debug(message) {
 function debug2(message) {
   if (message.content.match(/^!z$/)) {
     zemiMode = 0;
-    attendList=[];
+    attendList = [];
     save();
     message.delete({ timeout: DELAY });
   }
@@ -1130,10 +1131,7 @@ function returnOrder() {
       zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
     );
     if (i == 0) {
-      if (tmpWeek == nextZemi) {
-        nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek + 1)].week; //次のゼミの日が今日だった場合、次のゼミを探す
-      }
-      diff = diffWeek(tmpWeek, nextZemi); // 今日と次のゼミの差
+      diff = diffWeek(today[3], nextZemi);
     }
     console.log(
       "ループ" +
@@ -1160,7 +1158,8 @@ function returnOrder() {
     }
     tmpWeek = next[3];
     const remain = remainingDays(today[1], today[2], next[1], next[2]);
-    if (remain == 1) dayList.push("`  明日`：");
+    if (remain == 0) dayList.push("`  今日`：");
+    else if (remain == 1) dayList.push("`  明日`：");
     else dayList.push("`" + makeEmpty(remain, 2, -1) + "日後`：");
   }
   let text = "**☆発表者順☆**\n" + dayList[0];
