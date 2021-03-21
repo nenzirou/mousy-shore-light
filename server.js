@@ -28,22 +28,22 @@ const member = [
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
   { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: -1 },
-  { id: "715796433487396864", name: "伊藤", zOrder: 0, G: 0, grade: 2 },
-  { id: "331787151341780994", name: "犬飼", zOrder: 5, G: 0, grade: 2 },
-  { id: "699500872442314754", name: "尾山", zOrder: 3, G: 0, grade: 2 },
-  { id: "708191971424075797", name: "南部", zOrder: 4, G: 0, grade: 2 },
+  { id: "715796433487396864", name: "伊藤", zOrder: -1, G: 0, grade: 2 },
+  { id: "331787151341780994", name: "犬飼", zOrder: -1, G: 0, grade: 2 },
+  { id: "699500872442314754", name: "尾山", zOrder: -1, G: 0, grade: 2 },
+  { id: "708191971424075797", name: "南部", zOrder: -1, G: 0, grade: 2 },
   { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
   { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
   { id: "337439445269741568", name: "髙岡", zOrder: 4, G: 0, grade: 1 },
   { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 1 },
   { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 4 },
   { id: "694560220730359890", name: "野ツ俣", zOrder: 5, G: 0, grade: 4 },
-  { id: "625491071475908651", name: "三木", zOrder: 0, G: 0, grade: 4 },
+  { id: "625491071475908651", name: "三木", zOrder: -1, G: 0, grade: 4 },
   { id: "336031337452666880", name: "虫鹿", zOrder: 2, G: 0, grade: 4 },
-  { id: "771287651818143755", name: "大橋", zOrder: -2, G: 0, grade: 3 },
-  { id: "600210954503979010", name: "谷口", zOrder: -2, G: 0, grade: 3 },
-  { id: "706476736467959818", name: "新良", zOrder: -2, G: 0, grade: 3 },
-  { id: "749561829558321182", name: "平野", zOrder: -2, G: 0, grade: 3 }
+  { id: "771287651818143755", name: "大橋", zOrder: 0, G: 0, grade: 3 },
+  { id: "600210954503979010", name: "谷口", zOrder: 3, G: 0, grade: 3 },
+  { id: "706476736467959818", name: "新良", zOrder: 4, G: 0, grade: 3 },
+  { id: "749561829558321182", name: "平野", zOrder: 5, G: 0, grade: 3 }
 ];
 // ゼミをいつやるか記述します。
 // weekには0~6を入れます。0:日曜日　1:月曜日　～　6:土曜日
@@ -594,7 +594,7 @@ async function notice(channel) {
   if (birth.length > 0) {
     text += "@everyone";
     for (let i = 0; i < birth.length; i++) {
-      text += birth[i].name + "の誕生日。おめでとう！\n";
+      text += birth[i].name + "の誕生日。おめでとう！:tada:\n";
     }
   }
   let holidayName = judgeHoliday(today[1], today[2]);
