@@ -21,37 +21,32 @@
 // zOrderにはその人のゼミ発表順を入れてください。発表が無い人には-1を入れてください。
 // Gには、share販売を使用する人には0,使用しない人に-1を入れてください。読み込まれたお金がここに入ります。
 // gradeには、M2:2 M1:1 B4:4 B3:3 教授:9 それ以外:-1を入力してください　share販売の表示やゼミの参加者の表示に使用します。
-const zOrderNum = 6; //ゼミ周期の個数を入れてください。
+const zOrderNum = 5; //ゼミ周期の個数を入れてください。
 const member = [
   { id: "758946932210008085", name: "BOT", zOrder: -1, G: 0, grade: -1 },
   { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
   { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: -1 },
-  { id: "715796433487396864", name: "伊藤", zOrder: -1, G: 0, grade: 2 },
-  { id: "331787151341780994", name: "犬飼", zOrder: -1, G: 0, grade: 2 },
-  { id: "699500872442314754", name: "尾山", zOrder: -1, G: 0, grade: 2 },
-  { id: "708191971424075797", name: "南部", zOrder: -1, G: 0, grade: 2 },
-  { id: "243312886049406979", name: "浅野", zOrder: 1, G: 0, grade: 1 },
-  { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 1 },
-  { id: "337439445269741568", name: "髙岡", zOrder: 4, G: 0, grade: 1 },
-  { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 1 },
-  { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 4 },
-  { id: "694560220730359890", name: "野ツ俣", zOrder: 5, G: 0, grade: 4 },
-  { id: "625491071475908651", name: "三木", zOrder: -1, G: 0, grade: 4 },
-  { id: "336031337452666880", name: "虫鹿", zOrder: 2, G: 0, grade: 4 },
-  { id: "771287651818143755", name: "大橋", zOrder: 0, G: 0, grade: 3 },
-  { id: "600210954503979010", name: "谷口", zOrder: 3, G: 0, grade: 3 },
-  { id: "706476736467959818", name: "新良", zOrder: 4, G: 0, grade: 3 },
-  { id: "749561829558321182", name: "平野", zOrder: 5, G: 0, grade: 3 }
+  { id: "243312886049406979", name: "浅野", zOrder: 0, G: 0, grade: 2 },
+  { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 2 },
+  { id: "337439445269741568", name: "髙岡", zOrder: 4, G: 0, grade: 2 },
+  { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 2 },
+  { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 1 },
+  { id: "694560220730359890", name: "野ツ俣", zOrder: 0, G: 0, grade: 1 },
+  { id: "336031337452666880", name: "虫鹿", zOrder: 2, G: 0, grade: 1 },
+  { id: "771287651818143755", name: "大橋", zOrder: 1, G: 0, grade: 4 },
+  { id: "600210954503979010", name: "谷口", zOrder: 3, G: 0, grade: 4 },
+  { id: "706476736467959818", name: "新良", zOrder: 4, G: 0, grade: 4 },
+  { id: "749561829558321182", name: "平野", zOrder: 0, G: 0, grade: 4 }
 ];
 // ゼミをいつやるか記述します。
 // weekには0~6を入れます。0:日曜日　1:月曜日　～　6:土曜日
 // timeには開始時刻を入れます。例)"16時30分"
 const zemiInfo = [
-  { week: 1, time: "16時30分" },
-  { week: 2, time: "14時45分" },
-  { week: 4, time: "14時45分" }
+  // { week: 1, time: "16時30分" },
+  // { week: 2, time: "14時45分" },
+  // { week: 4, time: "14時45分" }
 ];
 // 今年の祝日を記述します。2021年
 const holiday = [
@@ -603,12 +598,16 @@ async function notice(channel) {
     zemiInfo.find(v => v.week === today[3]) !== undefined &&
     holidayName === "none"
   ) {
-    text +=
-      "ゼミは今日の**" +
-      zemiInfo[nextZemiInfoID].time +
-      "**から。\n発表者は" +
-      returnMention(getLastNamesFromID(zemiID).concat(addName)) +
-      "です。\n";
+    if (zemiInfo.length > 0) {
+      text +=
+        "ゼミは今日の**" +
+        zemiInfo[nextZemiInfoID].time +
+        "**から。\n発表者は" +
+        returnMention(getLastNamesFromID(zemiID).concat(addName)) +
+        "です。\n";
+    } else {
+      text += "ゼミはしばらくおやすみです。";
+    }
   } else {
     //ゼミがあるが祝日の場合の処理
     if (
@@ -619,25 +618,29 @@ async function notice(channel) {
       nextZemiInfoID = getNextZemiInfoID(today[3] + 1);
     }
     // ゼミが無い日の処理
-    let nextZemiWeek = zemiInfo[nextZemiInfoID].week; //次のゼミの曜日
-    let diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
-    let nextZemiDay = getTime(diff * 24); //次のゼミの日
-    holidayName = judgeHoliday(nextZemiDay[1], nextZemiDay[2]); //次のゼミの日が祝日かどうか判定
-    // 次のゼミの日が祝日だった場合の処理
-    if (holidayName !== "none") {
-      nextZemiWeek = zemiInfo[getNextZemiInfoID(nextZemiDay[3] + 1)].week; //次のゼミの曜日
-      diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
-      nextZemiDay = getTime(diff * 24); //次のゼミの日
-      text += holidayName + "のため、次の";
+    if (zemiInfo.length > 0) {
+      let nextZemiWeek = zemiInfo[nextZemiInfoID].week; //次のゼミの曜日
+      let diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
+      let nextZemiDay = getTime(diff * 24); //次のゼミの日
+      holidayName = judgeHoliday(nextZemiDay[1], nextZemiDay[2]); //次のゼミの日が祝日かどうか判定
+      // 次のゼミの日が祝日だった場合の処理
+      if (holidayName !== "none") {
+        nextZemiWeek = zemiInfo[getNextZemiInfoID(nextZemiDay[3] + 1)].week; //次のゼミの曜日
+        diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
+        nextZemiDay = getTime(diff * 24); //次のゼミの日
+        text += holidayName + "のため、次の";
+      }
+      text +=
+        "ゼミは**" +
+        formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
+        "**の" +
+        zemiInfo[nextZemiInfoID].time +
+        "から。\n発表者は**" +
+        combiName(getLastNamesFromID(zemiID), addName) +
+        "**です。\n"; // ゼミが無い日
+    } else {
+      text += "ゼミはしばらくおやすみです。";
     }
-    text +=
-      "ゼミは**" +
-      formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
-      "**の" +
-      zemiInfo[nextZemiInfoID].time +
-      "から。\n発表者は**" +
-      combiName(getLastNamesFromID(zemiID), addName) +
-      "**です。\n"; // ゼミが無い日
   }
   // 期限の追加
   for (let i = 0; i < deadline.length; i++) {
@@ -1124,53 +1127,43 @@ function returnOrder() {
   let tmpWeek = today[3];
   const dayList = []; //残り日数を格納する
   let sum = 0; // 合計日数
-  for (let i = 0; i < zOrderNum; i++) {
-    let nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek)].week; //次のゼミの曜日
-    let diff = diffWeek(
-      nextZemi,
-      zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
-    );
-    if (i == 0) {
-      diff = diffWeek(today[3], nextZemi);
-    }
-    console.log(
-      "ループ" +
-        i +
-        ":今日" +
-        tmpWeek +
-        ":次のゼミID" +
-        nextZemi +
-        ":次のゼミ" +
-        zemiInfo[getNextZemiInfoID(nextZemi + 1)].week +
-        ":日数" +
-        diff +
-        ":合計" +
-        sum
-    );
-    sum += diff;
-    let next = getTime(sum * 24);
-    // 祝日の処理
-    const holidayName = judgeHoliday(next[1], next[2]);
-    if (holidayName !== "none") {
-      i--;
+  if (zemiInfo.length > 0) {
+    for (let i = 0; i < zOrderNum; i++) {
+      let nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek)].week; //次のゼミの曜日
+      let diff = diffWeek(
+        nextZemi,
+        zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
+      );
+      if (i == 0) {
+        diff = diffWeek(today[3], nextZemi);
+      }
+      sum += diff;
+      let next = getTime(sum * 24);
+      // 祝日の処理
+      const holidayName = judgeHoliday(next[1], next[2]);
+      if (holidayName !== "none") {
+        i--;
+        tmpWeek = next[3];
+        continue;
+      }
       tmpWeek = next[3];
-      continue;
+      const remain = remainingDays(today[1], today[2], next[1], next[2]);
+      if (remain == 0) dayList.push("`  今日`：");
+      else if (remain == 1) dayList.push("`  明日`：");
+      else dayList.push("`" + makeEmpty(remain, 2, -1) + "日後`：");
     }
-    tmpWeek = next[3];
-    const remain = remainingDays(today[1], today[2], next[1], next[2]);
-    if (remain == 0) dayList.push("`  今日`：");
-    else if (remain == 1) dayList.push("`  明日`：");
-    else dayList.push("`" + makeEmpty(remain, 2, -1) + "日後`：");
+    let text = "**☆発表者順☆**\n" + dayList[0];
+    text += "**" + combiName(getLastNamesFromID(zemiID), addName) + "**\n";
+    for (var i = 1; i < zOrderNum; i++) {
+      text +=
+        dayList[i] +
+        returnName(getLastNamesFromID((zemiID + i) % zOrderNum)) +
+        "\n";
+    }
+    return text;
+  } else {
+    return "";
   }
-  let text = "**☆発表者順☆**\n" + dayList[0];
-  text += "**" + combiName(getLastNamesFromID(zemiID), addName) + "**\n";
-  for (var i = 1; i < zOrderNum; i++) {
-    text +=
-      dayList[i] +
-      returnName(getLastNamesFromID((zemiID + i) % zOrderNum)) +
-      "\n";
-  }
-  return text;
 }
 // 積み残しリストに追加する
 function addAddName(str) {
@@ -2070,7 +2063,6 @@ function processEvent(name) {
   }
   if (gameOver) {
     console.log(name + "：" + nyan.score);
-    sendMsg(BOTU_CHANNEL, "ゲームプレイ：" + name + "→" + nyan.score + "点");
     let text = rank(nyan.score, name);
     client.channels.cache
       .get(GAME_CHANNEL)
