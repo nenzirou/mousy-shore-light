@@ -81,7 +81,8 @@ const deadline = [
   { name: "修論提出", month: 0, day: 0 },
   { name: "卒論提出", month: 0, day: 0 },
   { name: "修論発表", month: 0, day: 0 },
-  { name: "卒論発表", month: 0, day: 0 }
+  { name: "卒論発表", month: 0, day: 0 },
+  {name:"駐車場書類〆切",month:3,day:31}
 ];
 // 効果音の設定
 const assets = "https://cdn.glitch.com/37234c05-0f14-461b-8563-d8134d60fab3%2F";
@@ -128,7 +129,7 @@ const ANONY_CHANNEL = "768723934966841355"; // #匿名掲示板ID
 const SHARE_CHANNEL = "803967819402051624"; // #share販売ID
 const SE_CHANNEL = "716877202645450794"; // #説明書ID
 const WEATHER_CHANNEL = "811959513568903198"; //#天気予報ID
-const BOTU_CHANNEL = "813445840835706890"; //#BOT使用履歴ID
+const CHAT_CHANNEL = "811541043459653632";// #通話チャットID
 const INST_TEXT = "786125903460958230"; // ゲーム説明書のメッセージID
 const RANK_TEXT = "786232811207917599"; // ランキングのメッセージID
 const DISP_TEXT = "788263576594153472"; // ディスプレイのメッセージID
@@ -304,6 +305,7 @@ client.on("ready", message => {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 定時お知らせ　"秒　分　時間　日　月　曜日"を表す　*で毎回行う 0 22 * * * で毎朝7時に実行 時差9時間
 cron.schedule("30 0 22 * * *", () => {
+  // お知らせのメッセージを削除
   client.channels.cache
     .get(NOTICE_CHANNEL)
     .messages.fetch({ limit: 100 })
@@ -315,15 +317,27 @@ cron.schedule("30 0 22 * * *", () => {
           }
         }
       });
-      sendMsg(NOTICE_CHANNEL, returnOrder());
     });
-  notice(NOTICE_CHANNEL);
-  zemiMode = 0;
-  attendList = [];
-  save();
+  // 通話チャットのメッセージを削除
+  client.channels.cache
+    .get(CHAT_CHANNEL)
+    .messages.fetch({ limit: 100 })
+    .then(messages => {
+      messages.forEach(m => {
+        if(!m.content.match(/#|＃/)){
+          m.delete();
+        }
+      });
+    });
+  sendMsg(NOTICE_CHANNEL, returnOrder());// 発表者順の送信
+  notice(NOTICE_CHANNEL);// 毎朝のお知らせの送信
+  zemiMode = 0;// ゼミモードリセット
+  attendList = [];// 参加者リストリセット
+  save();// セーブ
 });
-// ゼミ順の定時連絡
+// 毎分実行
 cron.schedule("0 * * * * *", () => {
+  // ゼミの時間をカウントして更新する
   if (zemiMode == 1) {
     if (zemiText !== undefined) {
       const timeStamp = Date.now();
@@ -332,11 +346,11 @@ cron.schedule("0 * * * * *", () => {
     }
   }
 });
-// ステータスの変更を定時に行う
+// 毎時実行
 cron.schedule("0 * * * *", () => {
-  changeState();
-  displayBank("いらっしゃいませ！");
-  weather();
+  changeState();// ステータス変更
+  displayBank("いらっしゃいませ！");// お店表示リセット
+  weather();// 天気予報取得
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -606,7 +620,7 @@ async function notice(channel) {
         returnMention(getLastNamesFromID(zemiID).concat(addName)) +
         "です。\n";
     } else {
-      text += "ゼミはしばらくおやすみです。";
+      text += "ゼミはしばらくおやすみです。\n";
     }
   } else {
     //ゼミがあるが祝日の場合の処理
@@ -639,7 +653,7 @@ async function notice(channel) {
         combiName(getLastNamesFromID(zemiID), addName) +
         "**です。\n"; // ゼミが無い日
     } else {
-      text += "ゼミはしばらくおやすみです。";
+      text += "ゼミはしばらくおやすみです。\n";
     }
   }
   // 期限の追加
