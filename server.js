@@ -27,12 +27,12 @@ const member = [
   { id: "744759519011143730", name: "研究室", zOrder: -1, G: 0, grade: -1 },
   { id: "702413329691443270", name: "木島", zOrder: -1, G: 0, grade: 9 },
   { id: "730939586620031007", name: "木島A", zOrder: -1, G: 0, grade: -1 },
-  { id: "807689067663327274", name: "おじさん", zOrder: -1, G: 0, grade: -1 },
+  { id: "807689067663327274", name: "メンテ", zOrder: -1, G: 0, grade: -1 },
   { id: "243312886049406979", name: "浅野", zOrder: 0, G: 0, grade: 2 },
   { id: "694443025287610408", name: "稲守", zOrder: 3, G: 0, grade: 2 },
   { id: "337439445269741568", name: "髙岡", zOrder: 4, G: 0, grade: 2 },
   { id: "694899614201020448", name: "松野", zOrder: 2, G: 0, grade: 2 },
-  { id: "695626581187756102", name: "白木", zOrder: 1, G: 0, grade: 1 },
+  { id: "838561035115036693", name: "白木", zOrder: 1, G: 0, grade: 1 },
   { id: "694560220730359890", name: "野ツ俣", zOrder: 0, G: 0, grade: 1 },
   { id: "336031337452666880", name: "虫鹿", zOrder: 2, G: 0, grade: 1 },
   { id: "771287651818143755", name: "大橋", zOrder: 1, G: 0, grade: 4 },
@@ -229,7 +229,7 @@ http
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 client.on("ready", message => {
   console.log("Ready!");
-  changeState(); // プレイ中のゲーム名を変更
+  changeState("！を文頭に付けて読み上げ");
   //ゲームチャンネルのテキストを読み込み、説明とディスプレイとランキング以外を削除
   client.channels.cache
     .get(GAME_CHANNEL)
@@ -285,7 +285,7 @@ client.on("ready", message => {
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
-          if (noticeText === undefined && m.content.match(/今日は.+です。/)) {
+          if (noticeText === undefined && m.content.match(/^今日は.+です。/)) {
             noticeText = m;
             noticeText.react("✋");
             noticeText.react("✊");
@@ -312,7 +312,7 @@ cron.schedule("30 30 21 * * *", () => {
     .then(messages => {
       messages.forEach(m => {
         if (m.author.id == client.user.id) {
-          if (m.content.match(/今日は.+です。|日後/)) {
+          if (m.content.match(/^今日は.+です。|日後/)) {
             m.delete();
           }
         }
@@ -348,7 +348,6 @@ cron.schedule("0 * * * * *", () => {
 });
 // 毎時実行
 cron.schedule("0 * * * *", () => {
-  changeState(); // ステータス変更
   displayBank("いらっしゃいませ！"); // お店表示リセット
   weather(); // 天気予報取得
 });
@@ -529,36 +528,24 @@ client.on("messageReactionAdd", (reaction, user) => {
       } else if (reaction.emoji.name.match("nyanz")) {
         if (zemiMode == 0) {
           zemi(NOTICE_CHANNEL);
-          let nameList = combiName(
-            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum - 1),
-            preAddName
-          );
           noticeText.edit(
             noticeText.content.replace(
-              /発表者は.+です。(\n次回の発表者.+です。)?/,
-              "発表者は**" +
-                nameList +
-                "**です。\n次回の発表者は**" +
+              /ゼミは.+。\n発表者は.+です。/,
+              "次回の発表者は**" +
                 combiName(getLastNamesFromID(zemiID), addName) +
                 "**です。"
             )
           );
         }
       }
-      // ゼミ開始テキストの編集
+      // お知らせテキストの編集
       if (reaction.emoji.name === "✋" || reaction.emoji.name === "✊") {
         if (zemiMode > 0) {
-          let nameList = combiName(
-            getLastNamesFromID(zemiID != 0 ? zemiID - 1 : zOrderNum - 1),
-            preAddName
-          );
           //お知らせテキストの編集
           noticeText.edit(
             noticeText.content.replace(
-              /発表者は.+です。(\n次回の発表者.+です。)?/,
-              "発表者は**" +
-                nameList +
-                "**です。\n次回の発表者は**" +
+              /(次回の)?発表者.+です。/,
+              "次回の発表者は**" +
                 combiName(getLastNamesFromID(zemiID), addName) +
                 "**です。"
             )
@@ -597,7 +584,7 @@ async function notice(channel) {
   //誕生日の人を教える
   const birth = birthday.filter(v => v.m == today[1] && v.d == today[2]);
   text +=
-    "\n今日は**" + formatTime([today[1], today[2], today[3]]) + "**です。\n";
+    "\n今日は" + formatTime([today[1], today[2], today[3]]) + "です。\n";
   if (birth.length > 0) {
     let btext = "@everyone\n今日は";
     for (let i = 0; i < birth.length; i++) {
@@ -614,9 +601,9 @@ async function notice(channel) {
   ) {
     if (zemiInfo.length > 0) {
       text +=
-        "ゼミは本日**" +
+        "ゼミは本日" +
         zemiInfo[nextZemiInfoID].time +
-        "**から。\n発表者は" +
+        "から。\n発表者は" +
         returnMention(getLastNamesFromID(zemiID).concat(addName)) +
         "です。\n";
     } else {
@@ -628,7 +615,7 @@ async function notice(channel) {
       zemiInfo.find(v => v.week === today[3]) !== undefined &&
       holidayName !== "none"
     ) {
-      text += holidayName + "のため、**今日のゼミはお休みです。**\n";
+      text += "**今日のゼミはお休み。**\n";
       nextZemiInfoID = getNextZemiInfoID(today[3] + 1);
     }
     // ゼミが無い日の処理
@@ -642,12 +629,11 @@ async function notice(channel) {
         nextZemiWeek = zemiInfo[getNextZemiInfoID(nextZemiDay[3] + 1)].week; //次のゼミの曜日
         diff = diffWeek(today[3], nextZemiWeek); //今日から次のゼミまでの日数
         nextZemiDay = getTime(diff * 24); //次のゼミの日
-        text += holidayName + "のため、次の";
       }
       text +=
-        "ゼミは**" +
+        "ゼミは" +
         formatTime([nextZemiDay[1], nextZemiDay[2], nextZemiDay[3]]) +
-        "**の" +
+        "の" +
         zemiInfo[nextZemiInfoID].time +
         "から。\n発表者は**" +
         combiName(getLastNamesFromID(zemiID), addName) +
@@ -679,9 +665,11 @@ async function notice(channel) {
       }
     }
   }
-  if (today[3] == 2 || today[3] == 5) text += ":bell: 燃えるゴミの日\n"; // 火曜日と金曜日
-  if (today[3] == 4 && today[2] <= 6) text += ":bell: 明日は段ボール回収の日\n"; // 第一木曜日
-  if (today[3] == 5 && today[2] <= 7) text += ":bell: 段ボール回収の日\n"; // 第一金曜日
+  if (today[3] == 2 || today[3] == 5) text += ":bell:燃えるゴミの日\n"; // 火曜日と金曜日
+  if (today[3] == 4 && today[2] <= 6) text += ":bell:明日は段ボール回収の日\n"; // 第一木曜日
+  if (today[3] == 5 && today[2] <= 7) text += ":bell:段ボール回収の日\n"; // 第一金曜日
+  holidayName = judgeHoliday(today[1], today[2]);
+  if(holidayName!=="none") text+=":calendar_spiral:"+holidayName;
   // みんなのお知らせ
   if (noticeList.length > 0) {
     text += "\n";
@@ -1140,6 +1128,7 @@ function returnOrder() {
   let tmpWeek = today[3];
   const dayList = []; //残り日数を格納する
   let sum = 0; // 合計日数
+  let flag=false;//祝日に無限ループを回避するためのフラグ
   if (zemiInfo.length > 0) {
     for (let i = 0; i < zOrderNum; i++) {
       let nextZemi = zemiInfo[getNextZemiInfoID(tmpWeek)].week; //次のゼミの曜日
@@ -1147,7 +1136,7 @@ function returnOrder() {
         nextZemi,
         zemiInfo[getNextZemiInfoID(nextZemi + 1)].week
       );
-      if (i == 0) {
+      if (i == 0&&!flag) {
         diff = diffWeek(today[3], nextZemi);
       }
       sum += diff;
@@ -1157,6 +1146,7 @@ function returnOrder() {
       if (holidayName !== "none") {
         i--;
         tmpWeek = next[3];
+        flag = true;
         continue;
       }
       tmpWeek = next[3];
@@ -1364,11 +1354,9 @@ function displayBank(str) {
   bankText.edit(text); // ディスプレイ更新
 }
 // ステータスをランダムに変更する
-function changeState() {
-  let p = Math.floor(Math.random() * (state.length / 2));
-  const type = ["PLAYING", "LISTENING", "WATCHING"];
+function changeState(str) {
   client.user.setPresence({
-    activity: { name: state[2 * p].name, type: type[state[2 * p].state] }
+    activity: { name: str, type: "PLAYING" }
   });
 }
 // テキストを指定した文字列で囲んだものを生成する
@@ -1570,10 +1558,6 @@ function anony(message) {
     anonyId++;
     let text = "(" + anonyId + ")\n" + message.content;
     message.delete();
-    sendMsg(
-      BOTU_CHANNEL,
-      anonyId + "→" + member.find(v => v.id === message.author.id).name
-    );
     sendMsg(ANONY_CHANNEL, text);
     save();
   }
@@ -2378,94 +2362,4 @@ const res = [
   "ぃや″っぱりぃ″！？",
   "FXで有り金全部溶かしたにゃ″ん″！！！",
   "NHKの人ぉん、訴えないでくださぁ″い！"
-];
-// botのプレイしているゲーム 0→PLAYING「～をプレイ中」,1→LISTENING「～を再生中」,2→WATCHING「～を視聴中」
-const state = [
-  { name: "人生", state: 0 },
-  { name: "白い粉", state: 0 },
-  { name: "草", state: 0 },
-  { name: "チョコ", state: 0 },
-  { name: "葉っぱ", state: 0 },
-  { name: "タバコ", state: 0 },
-  { name: "パチンコ", state: 0 },
-  { name: "ギャンブル", state: 0 },
-  { name: "カジノ", state: 0 },
-  { name: "競馬", state: 0 },
-  { name: "闇営業", state: 0 },
-  { name: "ボランティア", state: 0 },
-  { name: "清掃活動", state: 0 },
-  { name: "脱炭素", state: 0 },
-  { name: "トミカ", state: 0 },
-  { name: "VR", state: 0 },
-  { name: "スプラトゥーン3", state: 0 },
-  { name: "パチスロ", state: 0 },
-  { name: "けん玉", state: 0 },
-  { name: "花札", state: 0 },
-  { name: "カタン", state: 0 },
-  { name: "プレイ中", state: 0 },
-  { name: "お″ねぇ″さ″ん", state: 0 },
-  { name: "遘√?縺輔￥縺励ｃ縺ｮ縺ゅ＆縺ｮ蜆ｪ縺ｧ縺", state: 0 },
-  { name: "縺薙ｓ縺ｫ縺｡縺ｯ譛ｪ譚･縺ｮ譛ｨ蟲ｶ遐如", state: 0 },
-  { name: "就職活動", state: 0 },
-  { name: "", state: 0 },
-  { name: "", state: 0 },
-  { name: "", state: 0 },
-  { name: "", state: 0 },
-  { name: "本能寺", state: 1 },
-  { name: "ノートルダム大聖堂", state: 1 },
-  { name: "自然", state: 1 },
-  { name: "資源", state: 1 },
-  { name: "汚れた川", state: 1 },
-  { name: "汚染区域", state: 1 },
-  { name: "失われた名誉", state: 1 },
-  { name: "コンピューターおばあちゃん", state: 1 },
-  { name: "再生中", state: 1 },
-  { name: "政権", state: 1 },
-  { name: "オゾンホール", state: 1 },
-  { name: "破壊された森林", state: 1 },
-  { name: "砂漠", state: 1 },
-  { name: "おぉ″ん″", state: 1 },
-  { name: "でもん。", state: 1 },
-  { name: "春はあけぼの", state: 1 },
-  { name: "冬はつとめて", state: 1 },
-  { name: "秋はゆうぐれ", state: 1 },
-  { name: "山一証券", state: 1 },
-  { name: "福島原発", state: 1 },
-  { name: "紙パック", state: 1 },
-  { name: "プラスチック", state: 1 },
-  { name: "", state: 1 },
-  { name: "", state: 1 },
-  { name: "", state: 1 },
-  { name: "ニャンちゅうと一緒", state: 2 },
-  { name: "お母さんと一緒", state: 2 },
-  { name: "木島先生", state: 2 },
-  { name: "仮想空間", state: 2 },
-  { name: "アンパンマン", state: 2 },
-  { name: "ピタゴラスイッチ", state: 2 },
-  { name: "テレビターズ", state: 2 },
-  { name: "ハッピーツリーフレンズ", state: 2 },
-  { name: "しまじろうのわお！", state: 2 },
-  { name: "ミッ〇キーマウス", state: 2 },
-  { name: "帰還者トーマス", state: 2 },
-  { name: "プーさん", state: 2 },
-  { name: "たまねぎおじさん", state: 2 },
-  { name: "視聴中", state: 2 },
-  { name: "動物園", state: 2 },
-  { name: "水族館", state: 2 },
-  { name: "深淵", state: 2 },
-  { name: "地球温暖化", state: 2 },
-  { name: "海面上昇", state: 2 },
-  { name: "お姉さんのお風呂", state: 2 },
-  { name: "黒電話", state: 2 },
-  { name: "たまごかけご飯", state: 2 },
-  { name: "モハベド・アブドゥル", state: 2 },
-  { name: "もう戻らないあの頃", state: 2 },
-  { name: "遠い目で空", state: 2 },
-  { name: "白い天井", state: 2 },
-  { name: "あなたの背後", state: 2 },
-  { name: "あなた", state: 2 },
-  { name: "虚空", state: 2 },
-  { name: "もう一人のボク", state: 2 },
-  { name: "", state: 2 },
-  { name: "", state: 2 }
 ];
