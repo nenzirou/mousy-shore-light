@@ -92,6 +92,7 @@ const SE = [
   { URL: assets + "hand.mp3?v=1612702206754", icon: "✋" },
   { URL: assets + "message.mp3?v=1621423574330", icon: "💬" },
   { URL: assets + "ovation.mp3?v=1621423120154", icon: "👏" },
+  { URL: assets + "thankyou.mp3?v=1621425553347", icon: "👋" },
   { URL: assets + "karaoke.mp3?v=1621422375866", icon: "🎤" }
 ];
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,6 +114,7 @@ const fs = require("fs");
 // チャンネルID記述
 const TEACHER_CHANNEL = "732522915832266834"; // #先生の部屋ID
 const NOTICE_CHANNEL = "716879387072528384"; // #お知らせID
+const LIVING_CHANNEL = "694442027248648224";//#研究室ID
 const DOCUMENT_CHANNEL = "790490207228788776"; // #資料ID
 const BOT_CHANNEL = "758946751830163477"; // #Bot開発ID
 const GAME_CHANNEL = "768724791141990461"; // #gameID
@@ -410,8 +412,8 @@ client.on("message", message => {
     share(message);
     return;
   }
-  //ゼミ中にメッセージが送信された場合、効果音を再生する
-  if(zemiMode==1){
+  //特定のチャンネルにメッセージが送信された場合、効果音を再生する
+  if (message.channel.id==LIVING_CHANNEL||message.channel.id===CHAT_CHANNEL) {
     playSE(1);
   }
   // 資料チャンネルの処理
@@ -1567,9 +1569,9 @@ function teachText() {
 
 //指定した効果音を鳴らす
 function playSE(mode) {
-  const voiceC = client.voice.connections.get(GUILD_ID);//接続ボイスチャンネルを取得
+  const voiceC = client.voice.connections.get(GUILD_ID); //接続ボイスチャンネルを取得
   let index = mode;
-  if (voiceC !== undefined){
+  if (voiceC !== undefined) {
     voiceC.play(SE[index].URL);
   }
 }
